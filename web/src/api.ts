@@ -32,6 +32,20 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   return data as T;
 }
 
+export type VersionInfo = {
+  name: string;
+  version: string;
+  commit: string;
+  repo: string;
+  runtime: { mode: string; supported: boolean; detail: string };
+  update: {
+    updateAvailable: boolean;
+    current: string;
+    latest: string;
+    message: string;
+    date?: string;
+  } | null;
+};
 export type Settings = {
   clientId: string;
   clientSecret: string;

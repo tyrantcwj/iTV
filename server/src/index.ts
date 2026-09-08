@@ -9,7 +9,7 @@ import { registerSettingsRoutes } from "./routes/settings.js";
 import { registerMediaRoutes } from "./routes/media.js";
 import { registerStreamRoutes } from "./routes/stream.js";
 import { registerChannelRoutes } from "./routes/channels.js";
-import { registerLiveRoutes } from "./routes/live.js";
+import { registerAgentRoutes } from "./agent.js";
 
 ensureDirs();
 
@@ -23,6 +23,7 @@ await registerMediaRoutes(app);
 await registerStreamRoutes(app);
 await registerChannelRoutes(app);
 await registerLiveRoutes(app);
+await registerAgentRoutes(app);
 
 const logoDir = path.join(config.dataDir, "logos");
 await app.register(fastifyStatic, {

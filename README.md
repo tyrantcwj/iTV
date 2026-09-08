@@ -73,4 +73,14 @@ docker compose up -d --build
 
 浏览器能稳定播放 mp4 / webm。mkv 主要给 M3U / VLC 用。
 
-台标只叠在网页直播里，不烧进 M3U 流（避免 NAS 实时转码）。
+## 在线更新 / 巡检（ityc-kit）
+
+已内置 [ityc-kit](https://github.com/tyrantcwj/ityc-kit)：
+
+- `GET /api/version` 查看当前 commit 与是否有更新
+- `GET /api/agent/inspect` 巡检快照（需要 `AGENT_TOKEN`）
+- `POST /api/agent/act` `{"action":"update"}` 拉取更新并重启
+
+Compose 默认 `ITYC_UPDATE_MODE=docker`（挂载 Docker socket，用 Watchtower 拉新镜像）。设置页可填令牌后点「拉取更新并重启」。
+
+部署时请设置环境变量 `AGENT_TOKEN`（随机长字符串）。没配令牌时巡检接口一律拒绝。

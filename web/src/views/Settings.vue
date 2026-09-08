@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from "vue";
 import { useRoute } from "vue-router";
-import { api, type Settings } from "../api";
+import { api, type Settings, type VersionInfo } from "../api";
 
 const route = useRoute();
 const form = reactive({
@@ -12,6 +12,10 @@ const form = reactive({
   publicBaseUrl: "",
 });
 const settings = ref<Settings | null>(null);
+const version = ref<VersionInfo | null>(null);
+const agentToken = ref("");
+const updating = ref(false);
+const inspecting = ref("");
 const saving = ref(false);
 const message = ref("");
 const error = ref("");
@@ -25,6 +29,7 @@ onMounted(async () => {
   form.tenant = data.tenant || "common";
   form.redirectUri = data.redirectUri || `${origin}/api/onedrive/callback`;
   form.publicBaseUrl = data.publicBaseUrl || origin;
+  version.value = await api<VersionInfo>("/api/version").catch(() => null);
   if (route.query.oauth === "ok") message.value = "OneDrive 授权成功";
   if (route.query.oauth === "error") error.value = String(route.query.message || "授权失败");
 });
@@ -48,6 +53,43 @@ async function save() {
 async function disconnect() {
   settings.value = await api<Settings>("/api/onedrive/disconnect", { method: "POST" });
   message.value = "已断开 OneDrive";
+}
+
+async function triggerUpdate() {
+  if (!agentToken.value) {
+    error.value = "请填写巡检令牌 AGENT_TOKEN";
+    return;
+  }
+  updating.value = true;
+  error.value = "";
+  try {
+    await api("/api/agent/act", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${agentToken.value}` },
+      body: JSON.stringify({ action: "update" }),
+    });
+    message.value = "已触发更新，稍后刷新查看版本。连接可能会短暂中断。";
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err);
+  } finally {
+    updating.value = false;
+  }
+}
+
+async function inspect() {
+  if (!agentToken.value) {
+    error.value = "请填写巡检令牌 AGENT_TOKEN";
+    return;
+  }
+  inspecting.value = "…";
+  try {
+    const snap = await api<unknown>("/api/agent/inspect", {
+      headers: { Authorization: `Bearer ${agentToken.value}` },
+    });
+    inspecting.value = JSON.stringify(snap, null, 2);
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err);
+  }
 }
 </script>
 
@@ -93,6 +135,30 @@ async function disconnect() {
         <a class="btn secondary" href="/api/onedrive/login">连接 OneDrive</a>
         <button v-if="settings?.connected" class="btn danger" @click="disconnect">断开</button>
       </div>
+    </div>
+
+    <div class="card" style="margin-top: 16px">
+      <h3 style="margin-top: 0">在线更新（ityc-kit）</h3>
+      <p class="hint">
+        当前版本 {{ version?.version || "—" }} · commit
+        <code>{{ version?.commit || "dev" }}</code>
+        <span v-if="version?.update?.updateAvailable">
+          · 仓库最新 {{ version.update.latest }}（{{ version.update.message }}）
+        </span>
+        <span v-else-if="version?.update"> · 已是最新</span>
+      </p>
+      <p class="hint">{{ version?.runtime?.detail }}</p>
+      <label class="field" style="max-width: 420px">
+        巡检令牌 AGENT_TOKEN
+        <input v-model="agentToken" type="password" placeholder="容器环境变量里的令牌" />
+      </label>
+      <div class="row" style="margin-top: 12px">
+        <button class="btn secondary" @click="inspect">巡检快照</button>
+        <button class="btn" :disabled="updating" @click="triggerUpdate">
+          {{ updating ? "更新中…" : "拉取更新并重启" }}
+        </button>
+      </div>
+      <pre v-if="inspecting" class="hint" style="white-space: pre-wrap; margin-top: 12px">{{ inspecting }}</pre>
     </div>
 
     <div class="card" style="margin-top: 16px">

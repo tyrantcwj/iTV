@@ -1,0 +1,24 @@
+{
+  "name": "ityc-kit",
+  "version": "0.1.0",
+  "description": "Node 服务的两块常用基建：容器内在线更新（拉源码重建重启）与 Agent 巡检/操作通道（令牌鉴权的只读快照 + 可注册动作）",
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=20" },
+  "exports": {
+    "./update": "./dist/update/index.js",
+    "./inspect": "./dist/inspect/index.js"
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "tsx --test test/*.test.ts",
+    "check": "npm run build && npm test"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "keywords": ["docker", "self-update", "ops", "health-check", "inspect", "node"]
+}
