@@ -9,6 +9,7 @@ import { registerSettingsRoutes } from "./routes/settings.js";
 import { registerMediaRoutes } from "./routes/media.js";
 import { registerStreamRoutes } from "./routes/stream.js";
 import { registerChannelRoutes } from "./routes/channels.js";
+import { registerLiveRoutes } from "./routes/live.js";
 import { registerAgentRoutes } from "./agent.js";
 
 ensureDirs();
