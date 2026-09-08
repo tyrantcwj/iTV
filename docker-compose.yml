@@ -1,0 +1,14 @@
+services:
+  tv:
+    image: ghcr.io/tyrantcwj/itv:latest
+    build: .
+    ports:
+      - "8787:8787"
+    volumes:
+      - ./data:/app/data
+    environment:
+      PORT: "8787"
+      DATA_DIR: /app/data
+      INTERNAL_BASE_URL: http://127.0.0.1:8787
+      TZ: Asia/Shanghai
+    restart: unless-stopped

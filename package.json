@@ -1,0 +1,15 @@
+{
+  "name": "virtual-tv",
+  "private": true,
+  "description": "虚拟电视台轮播系统",
+  "scripts": {
+    "dev": "concurrently -n server,web -c cyan,magenta \"npm run dev --prefix server\" \"npm run dev --prefix web\"",
+    "dev:server": "npm run dev --prefix server",
+    "dev:web": "npm run dev --prefix web",
+    "start": "npm start --prefix server",
+    "build": "npm run build --prefix web"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
