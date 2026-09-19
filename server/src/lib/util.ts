@@ -29,6 +29,13 @@ export function playableDuration(durationSec: number, introSec: number, outroSec
   return Math.max(1, durationSec - introSec - outroSec);
 }
 
+export function programLabel(filePath: string, name: string): string {
+  const p = (filePath || "").replace(/\\/g, "/").replace(/\/+$/, "");
+  if (!p || p === name) return name;
+  if (p.endsWith(`/${name}`) || p.endsWith(name)) return p;
+  return `${p}/${name}`;
+}
+
 export function parseTime(input: string | number | undefined | null): number {
   if (input === undefined || input === null || input === "") return 0;
   if (typeof input === "number") return Number.isFinite(input) ? Math.max(0, input) : 0;

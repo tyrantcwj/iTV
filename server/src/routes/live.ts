@@ -4,10 +4,11 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { config } from "../config.js";
-import { channelStore, getSettings } from "../db.js";
+import { channelStore, getSettings, mediaStore } from "../db.js";
 import { hasFfmpeg } from "../lib/ffmpeg.js";
+import { getDownloadUrl } from "../lib/onedrive.js";
 import { buildConcatWindow, getNowPlaying, toProgram } from "../lib/scheduler.js";
-import { isWebPlayable, publicUrl } from "../lib/util.js";
+import { isWebPlayable, playableDuration, programLabel, publicUrl } from "../lib/util.js";
 
 function baseUrl(req: FastifyRequest): string {
   const s = getSettings();
@@ -27,33 +28,56 @@ function m3uLine(req: FastifyRequest, channel: ReturnType<typeof channelStore.li
   const base = baseUrl(req);
   const logo = channel.logo_file ? publicUrl(base, `/api/uploads/logos/${channel.logo_file}`) : "";
   const logoAttr = logo ? ` tvg-logo="${logo}"` : "";
-  return `#EXTINF:-1 tvg-id="${channel.id}" tvg-name="${channel.name}"${logoAttr} group-title="虚拟电视台",${channel.name}\n${publicUrl(base, `/live/${channel.id}.ts`)}`;
+  return `#EXTINF:-1 tvg-id="${channel.id}" tvg-name="${channel.name}"${logoAttr} group-title="虚拟电视台",${channel.name}\n${publicUrl(base, `/live/${channel.id}.m3u`)}`;
 }
 
-function sendPlaylist(req: FastifyRequest, reply: FastifyReply) {
+async function channelFilePlaylist(channel: ReturnType<typeof channelStore.list>[number]) {
+  const programs = programsOf(channel.id).filter((p) => p.durationSec > 0);
+  const now = getNowPlaying(programs, channel.start_at);
+  if (!now) return "#EXTM3U\n";
+  const items = programs.filter((p) => p.durationSec > 0);
+  const count = Math.min(items.length, 24);
+  const window = Array.from({ length: count }, (_, n) => items[(now.index + n) % items.length]);
+  const urls = await Promise.all(
+    window.map(async (item) => {
+      const media = mediaStore.get(item.mediaId);
+      return media ? getDownloadUrl(media.item_id) : "";
+    }),
+  );
+  const lines = ["#EXTM3U"];
+  window.forEach((item, n) => {
+    const url = urls[n];
+    if (!url) return;
+    const playable = playableDuration(item.durationSec, item.introSec, item.outroSec);
+    const title = `${channel.name} · ${programLabel(item.path, item.title)}`;
+    if (n === 0) lines.push(`#EXTVLCOPT:start-time=${Math.floor(now.playhead)}`);
+    lines.push(`#EXTINF:${Math.max(1, Math.round(n === 0 ? now.remaining : playable))},${title}`);
+    lines.push(url);
+  });
+  return lines.join("\n") + "\n";
+}
+
+function sendMasterPlaylist(req: FastifyRequest, reply: FastifyReply) {
   const lines = ["#EXTM3U"];
   for (const ch of channelStore.list()) {
     lines.push(m3uLine(req, ch));
   }
   reply.header("Content-Type", "application/vnd.apple.mpegurl; charset=utf-8");
-  reply.header("Content-Disposition", 'attachment; filename="channels.m3u"');
+  reply.header("Content-Disposition", 'inline; filename="channels.m3u"');
   return lines.join("\n") + "\n";
 }
 
 export async function registerLiveRoutes(app: FastifyInstance) {
   app.get("/live/:filename", async (req: FastifyRequest, reply: FastifyReply) => {
     const filename = (req.params as { filename: string }).filename;
-    if (filename === "playlist.m3u") return sendPlaylist(req, reply);
+    if (filename === "playlist.m3u") return sendMasterPlaylist(req, reply);
 
     if (filename.endsWith(".m3u")) {
       const channel = channelStore.get(filename.slice(0, -4));
       if (!channel) return reply.code(404).send({ error: "频道不存在" });
       reply.header("Content-Type", "application/vnd.apple.mpegurl; charset=utf-8");
-      reply.header(
-        "Content-Disposition",
-        `attachment; filename="${channel.id}.m3u"; filename*=UTF-8''${encodeURIComponent(channel.slug + ".m3u")}`,
-      );
-      return `#EXTM3U\n${m3uLine(req, channel)}\n`;
+      reply.header("Content-Disposition", 'inline; filename="channel.m3u"');
+      return channelFilePlaylist(channel);
     }
 
     if (!filename.endsWith(".ts")) {
@@ -71,15 +95,22 @@ export async function registerLiveRoutes(app: FastifyInstance) {
       return reply.code(503).send({ error: "服务器未安装 ffmpeg，无法输出直播流" });
     }
 
-    const entries = buildConcatWindow(programs, channel.start_at);
+    const entries = buildConcatWindow(programs, channel.start_at, Date.now(), 2);
     const listFile = path.join(os.tmpdir(), `live-${channel.id}-${crypto.randomUUID()}.txt`);
+    const urls = await Promise.all(
+      entries.map(async (entry) => {
+        const media = mediaStore.get(entry.mediaId);
+        return media
+          ? await getDownloadUrl(media.item_id)
+          : `${config.internalBaseUrl}/api/media/${entry.mediaId}/stream?proxy=1`;
+      }),
+    );
     const lines = ["ffconcat version 1.0"];
-    for (const entry of entries) {
-      const url = `${config.internalBaseUrl}/api/media/${entry.mediaId}/stream`;
-      lines.push(`file '${url.replace(/'/g, "\\'")}'`);
+    entries.forEach((entry, i) => {
+      lines.push(`file '${urls[i].replace(/'/g, "'\\''")}'`);
       lines.push(`inpoint ${entry.inpoint.toFixed(3)}`);
       lines.push(`outpoint ${entry.outpoint.toFixed(3)}`);
-    }
+    });
     fs.writeFileSync(listFile, lines.join("\n"), "utf8");
 
     reply.hijack();

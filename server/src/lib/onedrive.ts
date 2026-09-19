@@ -172,14 +172,46 @@ export async function listVideosRecursive(itemId: string, prefix = ""): Promise<
   return videos;
 }
 
-export async function getDownloadUrl(itemId: string): Promise<string> {
-  const item = await graph<Record<string, unknown>>(
-    `/me/drive/items/${encodeURIComponent(itemId)}?$select=id,@microsoft.graph.downloadUrl`,
+export async function getDriveItem(itemId: string): Promise<DriveItem & Record<string, unknown>> {
+  return graph<DriveItem & Record<string, unknown>>(
+    `/me/drive/items/${encodeURIComponent(itemId)}`,
   );
-  const url = item["@microsoft.graph.downloadUrl"];
-  if (typeof url !== "string" || !url) {
-    throw new Error("无法获取下载地址");
+}
+
+function pickDownloadUrl(item: Record<string, unknown>): string {
+  for (const key of [
+    "@microsoft.graph.downloadUrl",
+    "microsoft.graph.downloadUrl",
+    "@content.downloadUrl",
+  ]) {
+    const value = item[key];
+    if (typeof value === "string" && value.startsWith("http")) return value;
   }
+  return "";
+}
+
+const downloadUrlCache = new Map<string, { url: string; exp: number }>();
+
+export async function getDownloadUrl(itemId: string): Promise<string> {
+  const hit = downloadUrlCache.get(itemId);
+  if (hit && hit.exp > Date.now()) return hit.url;
+
+  const item = await getDriveItem(itemId);
+  let url = pickDownloadUrl(item);
+  if (!url) {
+    const token = await accessToken();
+    const res = await fetch(
+      `${config.china.graph}/me/drive/items/${encodeURIComponent(itemId)}/content`,
+      {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+        redirect: "manual",
+      },
+    );
+    url = res.headers.get("location") || "";
+  }
+  if (!url) throw new Error(`无法获取下载地址`);
+  downloadUrlCache.set(itemId, { url, exp: Date.now() + 25 * 60 * 1000 });
   return url;
 }
 

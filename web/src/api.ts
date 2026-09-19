@@ -105,6 +105,7 @@ export type NowResponse = {
   current?: {
     mediaId: string;
     title: string;
+    path?: string;
     durationSec: number;
     introSec: number;
     outroSec: number;
@@ -113,7 +114,7 @@ export type NowResponse = {
     webPlayable: boolean;
     streamUrl: string;
   };
-  next?: { mediaId: string; title: string };
+  next?: { mediaId: string; title: string; path?: string };
 };
 
 export function formatTime(sec: number): string {

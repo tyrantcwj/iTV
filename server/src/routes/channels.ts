@@ -4,7 +4,7 @@ import type { FastifyInstance } from "fastify";
 import { config } from "../config.js";
 import { channelStore, getSettings, mediaStore, type ChannelRow } from "../db.js";
 import { getNowPlaying, toProgram } from "../lib/scheduler.js";
-import { isWebPlayable, publicUrl, slugify } from "../lib/util.js";
+import { isWebPlayable, programLabel, publicUrl, slugify } from "../lib/util.js";
 
 function logoUrl(row: ChannelRow): string {
   if (!row.logo_file) return "";
@@ -32,7 +32,7 @@ function serializeChannel(row: ChannelRow) {
     startAt: row.start_at,
     itemCount: items.length,
     now: now
-      ? { title: now.current.title, playhead: now.playhead, remaining: now.remaining }
+      ? { title: programLabel(now.current.path, now.current.title), playhead: now.playhead, remaining: now.remaining }
       : null,
   };
 }
@@ -56,7 +56,7 @@ export async function registerChannelRoutes(app: FastifyInstance) {
       name,
       slug: slugify(name) + "-" + crypto.randomUUID().slice(0, 4),
       logo_file: "",
-      logo_width: 96,
+      logo_width: 200,
       logo_x: 24,
       logo_y: 24,
       start_at: body.startAt || Date.now(),
@@ -161,7 +161,8 @@ export async function registerChannelRoutes(app: FastifyInstance) {
       channel: serializeChannel(row),
       current: {
         mediaId: now.current.mediaId,
-        title: now.current.title,
+        title: programLabel(now.current.path, now.current.title),
+        path: now.current.path,
         durationSec: now.current.durationSec,
         introSec: now.current.introSec,
         outroSec: now.current.outroSec,
@@ -172,7 +173,8 @@ export async function registerChannelRoutes(app: FastifyInstance) {
       },
       next: {
         mediaId: now.next.mediaId,
-        title: now.next.title,
+        title: programLabel(now.next.path, now.next.title),
+        path: now.next.path,
       },
     };
   });

@@ -4,6 +4,7 @@ export type Program = {
   mediaId: string;
   itemId: string;
   title: string;
+  path: string;
   durationSec: number;
   introSec: number;
   outroSec: number;
@@ -26,6 +27,7 @@ export function toProgram(row: {
   id: string;
   item_id: string;
   name: string;
+  path?: string;
   duration_sec: number;
   intro_sec: number;
   outro_sec: number;
@@ -37,6 +39,7 @@ export function toProgram(row: {
     mediaId: row.id,
     itemId: row.item_id,
     title: row.name,
+    path: row.path || "",
     durationSec: row.duration_sec,
     introSec: row.intro_sec,
     outroSec: row.outro_sec,

@@ -3,8 +3,12 @@ services:
     image: ghcr.io/tyrantcwj/itv:latest
     build: .
     container_name: itv
+    network_mode: bridge
     ports:
       - "8787:8787"
+    dns:
+      - 8.8.8.8
+      - 223.5.5.5
     volumes:
       - ./data:/app/data
       - /var/run/docker.sock:/var/run/docker.sock
@@ -13,6 +17,7 @@ services:
       DATA_DIR: /app/data
       INTERNAL_BASE_URL: http://127.0.0.1:8787
       TZ: Asia/Shanghai
+      NODE_OPTIONS: --dns-result-order=ipv4first
       ITYC_APP_ROOT: /app
       ITYC_REPO: tyrantcwj/iTV
       ITYC_CONTAINER_NAME: itv

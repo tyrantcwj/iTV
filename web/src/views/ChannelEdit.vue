@@ -14,7 +14,7 @@ const notice = ref("");
 const uploading = ref(false);
 
 const name = ref("");
-const logoWidth = ref(96);
+const logoWidth = ref(200);
 const logoX = ref(24);
 const logoY = ref(24);
 const startLocal = ref("");

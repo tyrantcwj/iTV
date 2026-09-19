@@ -16,6 +16,8 @@ const probing = ref(false);
 const error = ref("");
 const notice = ref("");
 const keyword = ref("");
+const csvInput = ref<HTMLInputElement | null>(null);
+const csvBusy = ref(false);
 
 const currentId = computed(() => crumbs.value[crumbs.value.length - 1].id);
 const filtered = computed(() => {
@@ -126,12 +128,14 @@ async function probeSelected() {
   if (!selectedLib.value.length) return;
   probing.value = true;
   try {
-    const data = await api<{ results: { ok: boolean }[] }>("/api/media/probe", {
+    const data = await api<{ results: { ok: boolean; error?: string }[] }>("/api/media/probe", {
       method: "POST",
       body: JSON.stringify({ ids: selectedLib.value }),
     });
     const ok = data.results.filter((r) => r.ok).length;
     notice.value = `已探测 ${ok}/${data.results.length} 条时长`;
+    const failed = data.results.find((r) => !r.ok);
+    if (failed?.error) error.value = failed.error;
     await loadLibrary();
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err);
@@ -155,6 +159,42 @@ async function saveOne(item: MediaItem, field: "introSec" | "outroSec", value: s
   });
   await loadLibrary();
 }
+
+async function importSkipCsv(ev: Event) {
+  const input = ev.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = "";
+  if (!file) return;
+  csvBusy.value = true;
+  error.value = "";
+  try {
+    const body = new FormData();
+    body.append("file", file);
+    const data = await api<{
+      updated: number;
+      unmatched: number;
+      skipped: number;
+      unmatchedFiles: string[];
+      skippedFiles: string[];
+      conflictFiles: string[];
+    }>("/api/media/skip-csv", { method: "POST", body });
+    const extra = [
+      data.unmatched ? `未匹配 ${data.unmatched}` : "",
+      data.skipped ? `空行 ${data.skipped}` : "",
+    ]
+      .filter(Boolean)
+      .join("，");
+    notice.value = `已从 CSV 写入 ${data.updated} 集片头片尾${extra ? `，${extra}` : ""}`;
+    if (data.unmatchedFiles?.length) {
+      error.value = `未匹配：${data.unmatchedFiles.slice(0, 8).join("、")}${data.unmatchedFiles.length > 8 ? "…" : ""}`;
+    }
+    await loadLibrary();
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err);
+  } finally {
+    csvBusy.value = false;
+  }
+}
 </script>
 
 <template>
@@ -162,7 +202,7 @@ async function saveOne(item: MediaItem, field: "introSec" | "outroSec", value: s
     <div class="page-head">
       <div>
         <h2>片库</h2>
-        <p>从世纪互联导入视频，批量填写片头 / 片尾秒数（也支持 1:30）</p>
+        <p>从世纪互联导入视频，也可上传片头片尾 CSV（文件名 + 起止秒）</p>
       </div>
     </div>
     <p v-if="error" class="error">{{ error }} <router-link to="/settings">去设置连接</router-link></p>
@@ -210,11 +250,24 @@ async function saveOne(item: MediaItem, field: "introSec" | "outroSec", value: s
 
       <div class="card">
         <h3 style="margin-top: 0">已导入 {{ library.length }} 条</h3>
+        <p class="hint" style="margin-top: 0">
+          CSV 列：文件名, 片头起秒, 片头止秒, 片尾起秒, 片尾止秒。按文件名匹配片库；开播用片头止秒，切走用片尾起秒。空单元格会跳过。
+        </p>
         <div class="row" style="margin-bottom: 12px">
           <input v-model="keyword" placeholder="搜索文件名" style="min-width: 160px" />
           <input v-model="intro" placeholder="片头 1:30 或 90" style="width: 120px" />
           <input v-model="outro" placeholder="片尾" style="width: 120px" />
           <button class="btn" :disabled="!selectedLib.length" @click="applySkip">批量应用</button>
+          <button class="btn secondary" :disabled="csvBusy" @click="csvInput?.click()">
+            {{ csvBusy ? "导入中…" : "导入片头片尾 CSV" }}
+          </button>
+          <input
+            ref="csvInput"
+            type="file"
+            accept=".csv,text/csv,.txt"
+            style="display: none"
+            @change="importSkipCsv"
+          />
           <button class="btn secondary" :disabled="!selectedLib.length || probing" @click="probeSelected">
             {{ probing ? "探测中…" : "探测时长" }}
           </button>

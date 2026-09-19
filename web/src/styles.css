@@ -188,22 +188,37 @@ input:focus, select:focus, textarea:focus {
 
 .tv-root {
   position: fixed;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   background: #000;
   overflow: hidden;
 }
-.tv-root video {
+.tv-player,
+.tv-player .art-video-player {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  z-index: 1;
+}
+.tv-root:fullscreen,
+.tv-root:-webkit-full-screen {
+  width: 100%;
+  height: 100%;
   background: #000;
 }
 .tv-logo {
   position: absolute;
-  z-index: 3;
-  pointer-events: none;
+  z-index: 6;
+  pointer-events: auto;
+  cursor: pointer;
   object-fit: contain;
-  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.55));
+  max-width: 28vw;
 }
 .tv-osd {
   position: absolute;
@@ -214,7 +229,6 @@ input:focus, select:focus, textarea:focus {
   padding: 12px 18px;
   border-radius: 12px;
   min-width: 280px;
-  transition: opacity 0.4s;
 }
 .tv-osd .live {
   color: #ff5a5a;
@@ -224,7 +238,10 @@ input:focus, select:focus, textarea:focus {
 }
 .tv-start {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   display: grid;
   place-items: center;
   background: rgba(0,0,0,0.55);

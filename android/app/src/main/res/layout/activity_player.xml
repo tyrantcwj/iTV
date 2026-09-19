@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000">
+
+    <org.videolan.libvlc.util.VLCVideoLayout
+        android:id="@+id/video"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <ImageView
+        android:id="@+id/logo"
+        android:layout_width="120dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|start"
+        android:adjustViewBounds="true"
+        android:contentDescription="单击切换全屏"
+        android:padding="4dp" />
+
+    <LinearLayout
+        android:id="@+id/osd"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:layout_margin="20dp"
+        android:background="#B3000000"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <TextView
+            android:id="@+id/live"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="● LIVE"
+            android:textColor="#FF5A5A"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingTop="4dp"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/next"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingTop="4dp"
+            android:textColor="#CCCCCC"
+            android:textSize="13sp" />
+    </LinearLayout>
+</FrameLayout>

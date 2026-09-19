@@ -4,12 +4,55 @@ import { ffprobeDuration } from "../lib/ffmpeg.js";
 import {
   durationFromItem,
   getDownloadUrl,
+  getDriveItem,
   itemExt,
   itemPath,
   listChildren,
   listVideosRecursive,
 } from "../lib/onedrive.js";
+import { applySkipCsv } from "../lib/skip-csv.js";
 import { isVideoFile, isWebPlayable, parseTime } from "../lib/util.js";
+
+async function mapPool<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) || 0 }, async () => {
+      while (next < items.length) {
+        const i = next++;
+        out[i] = await fn(items[i]);
+      }
+    }),
+  );
+  return out;
+}
+
+async function probeOne(id: string) {
+  const row = mediaStore.get(id);
+  if (!row) throw new Error("未找到");
+  const item = await getDriveItem(row.item_id);
+  let duration = durationFromItem(item);
+  if (!(duration > 0)) {
+    duration = await ffprobeDuration(await getDownloadUrl(row.item_id));
+  }
+  mediaStore.updateDuration(id, duration);
+  return duration;
+}
+
+async function probeIds(ids: string[]) {
+  return mapPool(ids, 3, async (id) => {
+    try {
+      const durationSec = await probeOne(id);
+      return { id, durationSec, ok: true as const };
+    } catch (err) {
+      return {
+        id,
+        ok: false as const,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  });
+}
 
 function serialize(row: ReturnType<typeof mediaStore.list>[number]) {
   return {
@@ -88,6 +131,8 @@ export async function registerMediaRoutes(app: FastifyInstance) {
       });
       return serialize(row);
     });
+    const missing = imported.filter((item) => !item.durationSec).map((item) => item.id);
+    if (missing.length) void probeIds(missing);
     return { imported };
   });
 
@@ -100,6 +145,33 @@ export async function registerMediaRoutes(app: FastifyInstance) {
       body.outro !== undefined ? parseTime(body.outro) : undefined,
     );
     return { items: mediaStore.list().filter((m) => ids.includes(m.id)).map(serialize) };
+  });
+
+  app.post("/api/media/skip-csv", async (req, reply) => {
+    const ct = String(req.headers["content-type"] || "");
+    let csv = "";
+    if (ct.includes("multipart/form-data")) {
+      const file = await req.file();
+      if (!file) return reply.code(400).send({ error: "请选择 CSV 文件" });
+      csv = (await file.toBuffer()).toString("utf8");
+    } else {
+      csv = String((req.body as { csv?: string } | null)?.csv || "");
+    }
+    if (!csv.trim()) return reply.code(400).send({ error: "CSV 为空" });
+    const result = applySkipCsv(mediaStore.list(), csv);
+    for (const hit of result.updated) {
+      mediaStore.updateOne(hit.id, { intro_sec: hit.introSec, outro_sec: hit.outroSec });
+    }
+    return {
+      updated: result.updated.length,
+      unmatched: result.unmatched.length,
+      skipped: result.skipped.length,
+      conflicts: result.conflicts.length,
+      items: result.updated,
+      unmatchedFiles: result.unmatched,
+      skippedFiles: result.skipped,
+      conflictFiles: result.conflicts,
+    };
   });
 
   app.patch("/api/media/:id", async (req) => {
@@ -117,25 +189,7 @@ export async function registerMediaRoutes(app: FastifyInstance) {
 
   app.post("/api/media/probe", async (req) => {
     const body = req.body as { ids?: string[] };
-    const ids = body.ids || [];
-    const results = [];
-    for (const id of ids) {
-      const row = mediaStore.get(id);
-      if (!row) continue;
-      try {
-        const url = await getDownloadUrl(row.item_id);
-        const duration = await ffprobeDuration(url);
-        mediaStore.updateDuration(id, duration);
-        results.push({ id, durationSec: duration, ok: true });
-      } catch (err) {
-        results.push({
-          id,
-          ok: false,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }
-    return { results };
+    return { results: await probeIds(body.ids || []) };
   });
 
   app.delete("/api/media", async (req) => {
