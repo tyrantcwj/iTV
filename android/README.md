@@ -13,6 +13,8 @@ GitHub Actions 在 `android/` 变更后自动打包，也可在仓库里手动�
 
 默认服务器是 `https://itv.ityc.cc`，可在首页点击地址修改。
 
+首页可填写 GitHub 令牌（需要能读 `tyrantcwj/iTV` 发布的权限），然后点「检查更新」。有新版本会提示打开 `android-latest` 的 APK 下载。
+
 ## 自己编译
 
 需要 JDK 17 和 Android SDK（platform 34）。

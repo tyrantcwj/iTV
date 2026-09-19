@@ -47,13 +47,22 @@ jobs:
           ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Stage APK
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk itv-android7.apk
+        id: ver
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk itv-android7.apk
+          CODE=$(python3 -c "import re; t=open('android/app/build.gradle.kts',encoding='utf-8').read(); print(re.search(r'versionCode\\s*=\\s*(\\d+)',t).group(1))")
+          NAME=$(python3 -c "import re; t=open('android/app/build.gradle.kts',encoding='utf-8').read(); print(re.search(r'versionName\\s*=\\s*\"([^\"]+)\"',t).group(1))")
+          printf '{"versionCode":%s,"versionName":"%s"}\n' "$CODE" "$NAME" > version.json
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: itv-android7
-          path: itv-android7.apk
+          path: |
+            itv-android7.apk
+            version.json
           if-no-files-found: error
 
       - name: Publish download
@@ -61,9 +70,13 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: android-latest
-          name: iTV Android 7
+          name: iTV Android 7 ${{ steps.ver.outputs.name }}
           body: |
+            versionCode: ${{ steps.ver.outputs.code }}
+            versionName: ${{ steps.ver.outputs.name }}
             安卓 7+ 收看 App，覆盖安装即可。
             默认服务器 `https://itv.ityc.cc`。
-          files: itv-android7.apk
+          files: |
+            itv-android7.apk
+            version.json
           make_latest: true
