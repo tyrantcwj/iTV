@@ -4,7 +4,12 @@
 
 ## 安装
 
-安装包在仓库里：`android/itv-android7.apk`。拷到平板，允许未知来源后安装。自己编译则生成 `app/build/outputs/apk/debug/app-debug.apk`。
+GitHub Actions 在 `android/` 变更后自动打包，也可在仓库里手动跑 **Android APK** workflow。
+
+- 发布页：https://github.com/tyrantcwj/iTV/releases/tag/android-latest
+- 直链：https://github.com/tyrantcwj/iTV/releases/download/android-latest/itv-android7.apk
+
+拷到平板，允许未知来源后覆盖安装。
 
 默认服务器是 `https://itv.ityc.cc`，可在首页点击地址修改。
 

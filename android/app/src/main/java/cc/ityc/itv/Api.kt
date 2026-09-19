@@ -23,6 +23,10 @@ data class NowPlaying(
     val nextTitle: String,
     val playhead: Double,
     val remaining: Double,
+    val introAt: Double,
+    val introSec: Double,
+    val outroSec: Double,
+    val durationSec: Double,
     val streamUrl: String,
 )
 
@@ -62,14 +66,18 @@ object Api {
             empty = json.optBoolean("empty") || current == null,
             channelName = channel.optString("name"),
             logoUrl = abs(channel.optString("logoUrl")),
-            logoWidth = channel.optInt("logoWidth", 200),
-            logoX = channel.optInt("logoX", 24),
-            logoY = channel.optInt("logoY", 24),
+            logoWidth = channel.optInt("logoWidth", 125),
+            logoX = channel.optInt("logoX", 50),
+            logoY = channel.optInt("logoY", 50),
             mediaId = current?.optString("mediaId").orEmpty(),
             title = current?.optString("title").orEmpty(),
             nextTitle = next?.optString("title").orEmpty(),
             playhead = current?.optDouble("playhead", 0.0) ?: 0.0,
             remaining = current?.optDouble("remaining", 0.0) ?: 0.0,
+            introAt = current?.optDouble("introAt", 0.0) ?: 0.0,
+            introSec = current?.optDouble("introSec", 0.0) ?: 0.0,
+            outroSec = current?.optDouble("outroSec", 0.0) ?: 0.0,
+            durationSec = current?.optDouble("durationSec", 0.0) ?: 0.0,
             streamUrl = abs(current?.optString("streamUrl").orEmpty()),
         )
     }

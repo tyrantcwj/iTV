@@ -6,5 +6,4 @@
 *.iml
 .cxx
 *.apk
-!itv-android7.apk
 !gradle/wrapper/gradle-wrapper.jar
