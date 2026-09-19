@@ -1,6 +1,7 @@
 package cc.ityc.itv
 
 import android.graphics.BitmapFactory
+import android.media.AudioManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -33,7 +34,9 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var titleView: TextView
     private lateinit var nextView: TextView
     private lateinit var clockView: TextView
+    private lateinit var volumeHint: TextView
     private lateinit var osd: View
+    private lateinit var audio: AudioManager
 
     private var libVlc: LibVLC? = null
     private var player: MediaPlayer? = null
@@ -79,11 +82,15 @@ class PlayerActivity : AppCompatActivity() {
         titleView = findViewById(R.id.title)
         nextView = findViewById(R.id.next)
         clockView = findViewById(R.id.clock)
+        volumeHint = findViewById(R.id.volume_hint)
         osd = findViewById(R.id.osd)
+        audio = getSystemService(AUDIO_SERVICE) as AudioManager
         clockView.text = beijingClock()
         titleView.text = intent.getStringExtra(EXTRA_CHANNEL_NAME)
         logoView.setOnClickListener { toggleImmersive() }
-        findViewById<View>(R.id.root).setOnClickListener { showOsd() }
+        clockView.setOnClickListener { toggleOsd() }
+        findViewById<View>(R.id.vol_up).setOnClickListener { nudgeVolume(true) }
+        findViewById<View>(R.id.vol_down).setOnClickListener { nudgeVolume(false) }
         applyImmersive()
         libVlc = LibVLC(
             this,
@@ -97,8 +104,10 @@ class PlayerActivity : AppCompatActivity() {
         )
         player = MediaPlayer(libVlc)
         player?.attachViews(videoLayout, null, false, false)
+        findViewById<View>(R.id.vol_rail).bringToFront()
         logoView.bringToFront()
         clockView.bringToFront()
+        volumeHint.bringToFront()
         osd.bringToFront()
         player?.setEventListener { event ->
             if (event.type == MediaPlayer.Event.EndReached) {
@@ -143,7 +152,6 @@ class PlayerActivity : AppCompatActivity() {
             mediaKey = now.mediaId
             play(now.streamUrl, now.playhead)
         }
-        showOsd()
     }
 
     private fun play(url: String, startSec: Double) {
@@ -156,8 +164,10 @@ class PlayerActivity : AppCompatActivity() {
         player?.media = media
         media.release()
         player?.play()
+        findViewById<View>(R.id.vol_rail).bringToFront()
         logoView.bringToFront()
         clockView.bringToFront()
+        volumeHint.bringToFront()
         osd.bringToFront()
     }
 
@@ -214,7 +224,24 @@ class PlayerActivity : AppCompatActivity() {
     private fun toggleImmersive() {
         immersive = !immersive
         applyImmersive()
-        showOsd()
+    }
+
+    private fun toggleOsd() {
+        osd.visibility = if (osd.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+    }
+
+    private fun nudgeVolume(up: Boolean) {
+        audio.adjustStreamVolume(
+            AudioManager.STREAM_MUSIC,
+            if (up) AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER,
+            0,
+        )
+        val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+        val now = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
+        volumeHint.text = "音量 ${now * 100 / max}%"
+        volumeHint.visibility = View.VISIBLE
+        handler.removeCallbacks(hideVolume)
+        handler.postDelayed(hideVolume, 1400)
     }
 
     private fun applyImmersive() {
@@ -233,13 +260,7 @@ class PlayerActivity : AppCompatActivity() {
         window.decorView.systemUiVisibility = flags
     }
 
-    private fun showOsd() {
-        osd.visibility = View.VISIBLE
-        handler.removeCallbacks(hideOsd)
-        handler.postDelayed(hideOsd, 4000)
-    }
-
-    private val hideOsd = Runnable { osd.visibility = View.GONE }
+    private val hideVolume = Runnable { volumeHint.visibility = View.GONE }
 
     private fun formatTime(sec: Double): String {
         val s = max(0, sec.toInt())

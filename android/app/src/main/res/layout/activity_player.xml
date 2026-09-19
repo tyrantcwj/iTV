@@ -19,6 +19,31 @@
         android:contentDescription="单击切换全屏"
         android:padding="4dp" />
 
+    <LinearLayout
+        android:id="@+id/vol_rail"
+        android:layout_width="140dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="end"
+        android:elevation="8dp"
+        android:orientation="vertical">
+
+        <View
+            android:id="@+id/vol_up"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <View
+            android:id="@+id/vol_down"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:clickable="true"
+            android:focusable="true" />
+    </LinearLayout>
+
     <TextView
         android:id="@+id/clock"
         android:layout_width="wrap_content"
@@ -26,16 +51,33 @@
         android:layout_gravity="top|end"
         android:layout_marginTop="50dp"
         android:layout_marginEnd="50dp"
-        android:elevation="12dp"
+        android:elevation="16dp"
         android:includeFontPadding="false"
+        android:padding="8dp"
         android:shadowColor="#CC000000"
         android:shadowDx="0"
         android:shadowDy="1"
         android:shadowRadius="8"
         android:text="00:00:00"
         android:textColor="#FFFFFF"
-        android:textSize="22sp"
+        android:textSize="36sp"
         android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/volume_hint"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end|center_vertical"
+        android:layout_marginEnd="28dp"
+        android:elevation="16dp"
+        android:shadowColor="#CC000000"
+        android:shadowDx="0"
+        android:shadowDy="1"
+        android:shadowRadius="8"
+        android:textColor="#FFFFFF"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
 
     <LinearLayout
         android:id="@+id/osd"
@@ -45,7 +87,8 @@
         android:layout_margin="20dp"
         android:background="#B3000000"
         android:orientation="vertical"
-        android:padding="12dp">
+        android:padding="12dp"
+        android:visibility="gone">
 
         <TextView
             android:id="@+id/live"

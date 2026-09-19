@@ -205,6 +205,19 @@ input:focus, select:focus, textarea:focus {
   width: 100%;
   height: 100%;
   z-index: 1;
+  pointer-events: none;
+}
+.tv-player .art-bottom,
+.tv-player .art-controls,
+.tv-player .art-mask,
+.tv-player .art-notice,
+.tv-player .art-state,
+.tv-player .art-lock,
+.tv-player .art-info,
+.tv-player .art-settings,
+.tv-player .art-progress,
+.tv-player .art-contextmenus {
+  display: none !important;
 }
 .tv-root:fullscreen,
 .tv-root:-webkit-full-screen {
@@ -219,6 +232,45 @@ input:focus, select:focus, textarea:focus {
   cursor: pointer;
   object-fit: contain;
   max-width: 28vw;
+}
+.tv-clock {
+  position: absolute;
+  z-index: 7;
+  pointer-events: auto;
+  cursor: pointer;
+  color: #fff;
+  font-size: 40px;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 2px #000, 0 0 10px rgba(0, 0, 0, 0.9);
+}
+.tv-vol {
+  position: absolute;
+  right: 0;
+  width: 18%;
+  min-width: 96px;
+  z-index: 5;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.tv-vol-up { top: 0; height: 50%; }
+.tv-vol-down { bottom: 0; height: 50%; }
+.tv-vol-hint {
+  position: absolute;
+  right: 28px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 8;
+  pointer-events: none;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 2px #000, 0 0 8px rgba(0, 0, 0, 0.85);
 }
 .tv-osd {
   position: absolute;
