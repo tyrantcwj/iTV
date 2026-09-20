@@ -25,10 +25,6 @@ export function isWebPlayable(ext: string, mime = ""): boolean {
   return ext === "mp4" || ext === "webm" || ext === "m4v";
 }
 
-export function playableDuration(durationSec: number, introSec: number, outroSec: number): number {
-  return Math.max(1, durationSec - introSec - outroSec);
-}
-
 export function programLabel(filePath: string, name: string): string {
   const p = (filePath || "").replace(/\\/g, "/").replace(/\/+$/, "");
   if (!p || p === name) return name;

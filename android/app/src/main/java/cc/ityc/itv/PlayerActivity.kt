@@ -42,10 +42,6 @@ class PlayerActivity : AppCompatActivity() {
     private var player: MediaPlayer? = null
     private var mediaKey = ""
     private var remaining = 0.0
-    private var introAt = 0.0
-    private var introSec = 0.0
-    private var outroSec = 0.0
-    private var durationSec = 0.0
     private var fetchedAt = 0L
     private var immersive = true
 
@@ -58,7 +54,6 @@ class PlayerActivity : AppCompatActivity() {
                 "即将切换"
             }
             if (left <= 0.4) refresh(true)
-            skipMarksIfNeeded()
             clockView.text = beijingClock()
             handler.postDelayed(this, 1000)
         }
@@ -135,10 +130,6 @@ class PlayerActivity : AppCompatActivity() {
     private fun applyNow(now: NowPlaying, forceSwitch: Boolean) {
         fetchedAt = System.currentTimeMillis()
         remaining = now.remaining
-        introAt = now.introAt
-        introSec = now.introSec
-        outroSec = now.outroSec
-        durationSec = now.durationSec
         if (now.empty) {
             titleView.text = "这个频道还没有节目"
             nextView.text = ""
@@ -169,19 +160,6 @@ class PlayerActivity : AppCompatActivity() {
         clockView.bringToFront()
         volumeHint.bringToFront()
         osd.bringToFront()
-    }
-
-    private fun skipMarksIfNeeded() {
-        val t = (player?.time ?: -1) / 1000.0
-        if (t < 0) return
-        val introEnd = introAt + introSec
-        if (introSec > 0 && t >= introAt && t < introEnd - 0.3) {
-            player?.time = (introEnd * 1000).toLong()
-            return
-        }
-        if (outroSec > 0 && durationSec > 0 && t >= durationSec - outroSec - 0.3) {
-            refresh(true)
-        }
     }
 
     private fun beijingClock(): String {

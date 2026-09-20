@@ -36,20 +36,11 @@ const remainingDisplay = computed(() => {
   return remainingSec();
 });
 
-function introWindow(cur: NonNullable<NowResponse["current"]>) {
-  const introAt = cur.introAt || 0;
-  const introEnd = cur.introEnd || introAt + (cur.introSec || 0);
-  const outroAt = Math.max(introEnd + 1, cur.durationSec - (cur.outroSec || 0));
-  return { introAt, introEnd, outroAt };
-}
-
 function expectedPlayhead() {
   const cur = state.value?.current;
   if (!cur) return 0;
-  const { introAt, introEnd, outroAt } = introWindow(cur);
-  let t = cur.playhead + Math.max(0, (Date.now() - fetchedAt) / 1000);
-  if (cur.introSec > 0 && t >= introAt && t < introEnd) t = introEnd;
-  return Math.min(outroAt - 0.05, Math.max(0, t));
+  const t = cur.playhead + Math.max(0, (Date.now() - fetchedAt) / 1000);
+  return Math.min(Math.max(1, cur.durationSec) - 0.05, Math.max(0, t));
 }
 
 function beijingClock(ts: number) {
@@ -60,25 +51,6 @@ function beijingClock(ts: number) {
     minute: "2-digit",
     second: "2-digit",
   });
-}
-
-function skipWindow() {
-  const el = art?.video;
-  const cur = state.value?.current;
-  if (!el || !cur || el.readyState < 1 || el.seeking) return;
-  const { introAt, introEnd, outroAt } = introWindow(cur);
-  if (cur.introSec > 0 && el.currentTime >= introAt && el.currentTime < introEnd - 0.12) {
-    el.currentTime = introEnd;
-    return;
-  }
-  if (cur.outroSec > 0 && el.currentTime >= outroAt - 0.12) {
-    const target = expectedPlayhead();
-    if (target < outroAt - 1 && Math.abs(el.currentTime - target) > 0.8) {
-      el.currentTime = target;
-      return;
-    }
-    void resync(true);
-  }
 }
 
 function sourceUrl() {
@@ -141,7 +113,6 @@ async function tryPlay() {
 }
 
 function onTime() {
-  skipWindow();
   if (Date.now() < seekGuardUntil) return;
   if (remainingSec() <= 0.35) void resync(true);
 }
@@ -161,7 +132,6 @@ async function resync(forceNext = false) {
       return;
     }
     joinSeek();
-    skipWindow();
     if (art?.video?.paused) void tryPlay();
   } finally {
     syncing = false;
@@ -219,12 +189,10 @@ function createPlayer(url: string) {
   });
   art.on("video:loadedmetadata", () => {
     joinSeek();
-    skipWindow();
     void tryPlay();
   });
   art.on("video:playing", () => {
     joinSeek();
-    skipWindow();
   });
   art.on("video:pause", () => {
     if (!tearingDown) void tryPlay();
@@ -329,7 +297,6 @@ onMounted(async () => {
     syncTimer = window.setInterval(() => void resync(false), 30000);
     clockTimer = window.setInterval(() => {
       clock.value = Date.now();
-      skipWindow();
     }, 400);
     window.addEventListener("keydown", onKey);
   } catch (err) {

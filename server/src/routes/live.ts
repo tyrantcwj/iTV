@@ -8,7 +8,7 @@ import { channelStore, getSettings, mediaStore } from "../db.js";
 import { hasFfmpeg } from "../lib/ffmpeg.js";
 import { getDownloadUrl } from "../lib/onedrive.js";
 import { buildConcatWindow, getNowPlaying, toProgram } from "../lib/scheduler.js";
-import { isWebPlayable, playableDuration, programLabel, publicUrl } from "../lib/util.js";
+import { isWebPlayable, programLabel, publicUrl } from "../lib/util.js";
 
 function baseUrl(req: FastifyRequest): string {
   const s = getSettings();
@@ -48,7 +48,7 @@ async function channelFilePlaylist(channel: ReturnType<typeof channelStore.list>
   window.forEach((item, n) => {
     const url = urls[n];
     if (!url) return;
-    const playable = playableDuration(item.durationSec, item.introSec, item.outroSec);
+    const playable = item.durationSec;
     const title = `${channel.name} · ${programLabel(item.path, item.title)}`;
     if (n === 0) lines.push(`#EXTVLCOPT:start-time=${Math.floor(now.playhead)}`);
     lines.push(`#EXTINF:${Math.max(1, Math.round(n === 0 ? now.remaining : playable))},${title}`);

@@ -23,9 +23,6 @@ data class NowPlaying(
     val nextTitle: String,
     val playhead: Double,
     val remaining: Double,
-    val introAt: Double,
-    val introSec: Double,
-    val outroSec: Double,
     val durationSec: Double,
     val streamUrl: String,
 )
@@ -74,9 +71,6 @@ object Api {
             nextTitle = next?.optString("title").orEmpty(),
             playhead = current?.optDouble("playhead", 0.0) ?: 0.0,
             remaining = current?.optDouble("remaining", 0.0) ?: 0.0,
-            introAt = current?.optDouble("introAt", 0.0) ?: 0.0,
-            introSec = current?.optDouble("introSec", 0.0) ?: 0.0,
-            outroSec = current?.optDouble("outroSec", 0.0) ?: 0.0,
             durationSec = current?.optDouble("durationSec", 0.0) ?: 0.0,
             streamUrl = abs(current?.optString("streamUrl").orEmpty()),
         )

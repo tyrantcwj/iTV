@@ -10,8 +10,7 @@ import {
   listChildren,
   listVideosRecursive,
 } from "../lib/onedrive.js";
-import { applySkipCsv } from "../lib/skip-csv.js";
-import { isVideoFile, isWebPlayable, parseTime } from "../lib/util.js";
+import { isVideoFile, isWebPlayable } from "../lib/util.js";
 
 async function mapPool<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(items.length);
@@ -64,9 +63,6 @@ function serialize(row: ReturnType<typeof mediaStore.list>[number]) {
     ext: row.ext,
     size: row.size,
     durationSec: row.duration_sec,
-    introSec: row.intro_sec,
-    outroSec: row.outro_sec,
-    playableSec: Math.max(1, row.duration_sec - row.intro_sec - row.outro_sec),
     webPlayable: isWebPlayable(row.ext, row.mime),
     createdAt: row.created_at,
   };
@@ -125,8 +121,6 @@ export async function registerMediaRoutes(app: FastifyInstance) {
         ext,
         size: item.size || 0,
         duration_sec: durationFromItem(item) || existing?.duration_sec || 0,
-        intro_sec: existing?.intro_sec || 0,
-        outro_sec: existing?.outro_sec || 0,
         created_at: existing?.created_at || Date.now(),
       });
       return serialize(row);
@@ -136,50 +130,10 @@ export async function registerMediaRoutes(app: FastifyInstance) {
     return { imported };
   });
 
-  app.post("/api/media/skip", async (req) => {
-    const body = req.body as { ids?: string[]; intro?: string | number; outro?: string | number };
-    const ids = body.ids || [];
-    mediaStore.updateSkip(
-      ids,
-      body.intro !== undefined ? parseTime(body.intro) : undefined,
-      body.outro !== undefined ? parseTime(body.outro) : undefined,
-    );
-    return { items: mediaStore.list().filter((m) => ids.includes(m.id)).map(serialize) };
-  });
-
-  app.post("/api/media/skip-csv", async (req, reply) => {
-    const ct = String(req.headers["content-type"] || "");
-    let csv = "";
-    if (ct.includes("multipart/form-data")) {
-      const file = await req.file();
-      if (!file) return reply.code(400).send({ error: "请选择 CSV 文件" });
-      csv = (await file.toBuffer()).toString("utf8");
-    } else {
-      csv = String((req.body as { csv?: string } | null)?.csv || "");
-    }
-    if (!csv.trim()) return reply.code(400).send({ error: "CSV 为空" });
-    const result = applySkipCsv(mediaStore.list(), csv);
-    for (const hit of result.updated) {
-      mediaStore.updateOne(hit.id, { intro_sec: hit.introSec, outro_sec: hit.outroSec });
-    }
-    return {
-      updated: result.updated.length,
-      unmatched: result.unmatched.length,
-      skipped: result.skipped.length,
-      conflicts: result.conflicts.length,
-      items: result.updated,
-      unmatchedFiles: result.unmatched,
-      skippedFiles: result.skipped,
-      conflictFiles: result.conflicts,
-    };
-  });
-
   app.patch("/api/media/:id", async (req) => {
     const { id } = req.params as { id: string };
-    const body = req.body as { intro?: string | number; outro?: string | number; name?: string };
-    const patch: { intro_sec?: number; outro_sec?: number; name?: string } = {};
-    if (body.intro !== undefined) patch.intro_sec = parseTime(body.intro);
-    if (body.outro !== undefined) patch.outro_sec = parseTime(body.outro);
+    const body = req.body as { name?: string };
+    const patch: { name?: string } = {};
     if (body.name !== undefined) patch.name = body.name;
     mediaStore.updateOne(id, patch);
     const row = mediaStore.get(id);

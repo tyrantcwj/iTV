@@ -188,7 +188,6 @@ async function uploadLogo(ev: Event) {
             <th>#</th>
             <th>节目</th>
             <th>时长</th>
-            <th>片头/片尾</th>
             <th></th>
           </tr>
         </thead>
@@ -197,7 +196,6 @@ async function uploadLogo(ev: Event) {
             <td>{{ index + 1 }}</td>
             <td>{{ item.name }}</td>
             <td>{{ formatTime(item.durationSec) }}</td>
-            <td>{{ formatTime(item.introSec) }} / {{ formatTime(item.outroSec) }}</td>
             <td class="row">
               <button class="btn secondary" @click="move(index, -1)">上移</button>
               <button class="btn secondary" @click="move(index, 1)">下移</button>

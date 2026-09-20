@@ -94,9 +94,6 @@ export type MediaItem = {
   ext: string;
   size: number;
   durationSec: number;
-  introSec: number;
-  outroSec: number;
-  playableSec: number;
   webPlayable: boolean;
   createdAt: number;
 };
@@ -124,8 +121,6 @@ export type NowResponse = {
     title: string;
     path?: string;
     durationSec: number;
-    introSec: number;
-    outroSec: number;
     playhead: number;
     remaining: number;
     webPlayable: boolean;

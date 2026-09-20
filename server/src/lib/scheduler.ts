@@ -1,13 +1,9 @@
-import { playableDuration } from "./util.js";
-
 export type Program = {
   mediaId: string;
   itemId: string;
   title: string;
   path: string;
   durationSec: number;
-  introSec: number;
-  outroSec: number;
   ext: string;
   mime: string;
   webPlayable: boolean;
@@ -29,8 +25,6 @@ export function toProgram(row: {
   name: string;
   path?: string;
   duration_sec: number;
-  intro_sec: number;
-  outro_sec: number;
   ext: string;
   mime: string;
   webPlayable?: boolean;
@@ -41,8 +35,6 @@ export function toProgram(row: {
     title: row.name,
     path: row.path || "",
     durationSec: row.duration_sec,
-    introSec: row.intro_sec,
-    outroSec: row.outro_sec,
     ext: row.ext,
     mime: row.mime,
     webPlayable: row.webPlayable ?? true,
@@ -57,10 +49,8 @@ export function getNowPlaying(
   const items = programs.filter((p) => p.durationSec > 0);
   if (!items.length) return null;
 
-  const playable = items.map((p) => ({
-    ...p,
-    playable: playableDuration(p.durationSec, p.introSec, p.outroSec),
-  }));
+  // 每集就是整集，不掐头去尾
+  const playable = items.map((p) => ({ ...p, playable: p.durationSec }));
   const loopSec = playable.reduce((sum, p) => sum + p.playable, 0);
   let elapsed = ((nowMs - startAtMs) % (loopSec * 1000) + loopSec * 1000) % (loopSec * 1000);
   elapsed /= 1000;
@@ -72,7 +62,7 @@ export function getNowPlaying(
         current: item,
         next: playable[(i + 1) % playable.length],
         index: i,
-        playhead: item.introSec + elapsed,
+        playhead: elapsed,
         remaining: item.playable - elapsed,
         loopSec,
         elapsedInLoop: playable.slice(0, i).reduce((s, p) => s + p.playable, 0) + elapsed,
@@ -100,7 +90,8 @@ export function buildConcatWindow(
   const items = programs.filter((p) => p.durationSec > 0);
   const entries: ConcatEntry[] = [];
 
-  const firstOut = Math.max(now.current.introSec + 1, now.current.durationSec - now.current.outroSec);
+  // 第一集要从当前进度接上，后面的都从头放
+  const firstOut = Math.max(1, now.current.durationSec);
   entries.push({
     mediaId: now.current.mediaId,
     inpoint: Math.min(now.playhead, firstOut - 0.2),
@@ -114,10 +105,9 @@ export function buildConcatWindow(
   while (acc < target && guard < 5000) {
     idx = (idx + 1) % items.length;
     const item = items[idx];
-    const inpoint = item.introSec;
-    const outpoint = Math.max(inpoint + 1, item.durationSec - item.outroSec);
-    entries.push({ mediaId: item.mediaId, inpoint, outpoint });
-    acc += outpoint - inpoint;
+    const outpoint = Math.max(1, item.durationSec);
+    entries.push({ mediaId: item.mediaId, inpoint: 0, outpoint });
+    acc += outpoint;
     guard += 1;
   }
   return entries;

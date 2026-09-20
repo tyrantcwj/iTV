@@ -33,8 +33,6 @@ CREATE TABLE IF NOT EXISTS media (
   ext TEXT DEFAULT '',
   size INTEGER DEFAULT 0,
   duration_sec REAL DEFAULT 0,
-  intro_sec REAL DEFAULT 0,
-  outro_sec REAL DEFAULT 0,
   created_at INTEGER NOT NULL
 );
 
@@ -77,6 +75,24 @@ function ensureColumn(table: string, column: string, ddl: string): void {
 
 ensureColumn("settings", "github_token", "github_token TEXT DEFAULT ''");
 
+/*
+ * 片头片尾跳过整套已经拿掉了，把老库里这两列也删干净。
+ *
+ * 删列是不可逆的，所以先确认它们确实没存过东西——线上 88 个片子
+ * 的 intro_sec / outro_sec 全是 0，这个功能从头到尾是空跑的。
+ * 真有非零值就留着不动，宁可多两列没人读，也不能把数据删了。
+ */
+function dropUnusedColumn(table: string, column: string): void {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  if (!cols.some((c) => c.name === column)) return;
+  const used = db.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE ${column} IS NOT NULL AND ${column} <> 0`).get() as { n: number };
+  if (used.n > 0) return;
+  db.exec(`ALTER TABLE ${table} DROP COLUMN ${column}`);
+}
+
+dropUnusedColumn("media", "intro_sec");
+dropUnusedColumn("media", "outro_sec");
+
 
 export type Settings = {
   id: number;
@@ -101,8 +117,6 @@ export type MediaRow = {
   ext: string;
   size: number;
   duration_sec: number;
-  intro_sec: number;
-  outro_sec: number;
   created_at: number;
 };
 
@@ -161,8 +175,8 @@ export const mediaStore = {
   },
   upsert(row: MediaRow) {
     db.prepare(
-      `INSERT INTO media (id, item_id, name, path, mime, ext, size, duration_sec, intro_sec, outro_sec, created_at)
-       VALUES (@id, @item_id, @name, @path, @mime, @ext, @size, @duration_sec, @intro_sec, @outro_sec, @created_at)
+      `INSERT INTO media (id, item_id, name, path, mime, ext, size, duration_sec, created_at)
+       VALUES (@id, @item_id, @name, @path, @mime, @ext, @size, @duration_sec, @created_at)
        ON CONFLICT(item_id) DO UPDATE SET
          name = excluded.name,
          path = excluded.path,
@@ -173,36 +187,18 @@ export const mediaStore = {
     ).run(row);
     return mediaStore.getByItemId(row.item_id)!;
   },
-  updateSkip(ids: string[], introSec?: number, outroSec?: number) {
-    const sets: string[] = [];
-    const params: Record<string, unknown> = {};
-    if (introSec !== undefined) {
-      sets.push("intro_sec = @intro_sec");
-      params.intro_sec = introSec;
-    }
-    if (outroSec !== undefined) {
-      sets.push("outro_sec = @outro_sec");
-      params.outro_sec = outroSec;
-    }
-    if (!sets.length || !ids.length) return;
-    const placeholders = ids.map((_, i) => `@id${i}`).join(",");
-    ids.forEach((id, i) => {
-      params[`id${i}`] = id;
-    });
-    db.prepare(`UPDATE media SET ${sets.join(", ")} WHERE id IN (${placeholders})`).run(params);
-  },
   updateDuration(id: string, durationSec: number) {
     db.prepare("UPDATE media SET duration_sec = ? WHERE id = ?").run(durationSec, id);
   },
   updateOne(
     id: string,
-    patch: Partial<Pick<MediaRow, "intro_sec" | "outro_sec" | "duration_sec" | "name">>,
+    patch: Partial<Pick<MediaRow, "duration_sec" | "name">>,
   ) {
     const current = mediaStore.get(id);
     if (!current) return;
     const next = { ...current, ...patch };
     db.prepare(
-      `UPDATE media SET name = @name, duration_sec = @duration_sec, intro_sec = @intro_sec, outro_sec = @outro_sec WHERE id = @id`,
+      `UPDATE media SET name = @name, duration_sec = @duration_sec WHERE id = @id`,
     ).run(next);
   },
   remove(ids: string[]) {
@@ -251,7 +247,7 @@ export const channelStore = {
       .prepare(
         `SELECT ci.channel_id, ci.media_id, ci.sort_order,
                 m.id, m.item_id, m.name, m.path, m.mime, m.ext, m.size,
-                m.duration_sec, m.intro_sec, m.outro_sec, m.created_at
+                m.duration_sec, m.created_at
          FROM channel_items ci
          JOIN media m ON m.id = ci.media_id
          WHERE ci.channel_id = ?

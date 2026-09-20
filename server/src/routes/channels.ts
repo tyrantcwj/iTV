@@ -79,9 +79,6 @@ export async function registerChannelRoutes(app: FastifyInstance) {
       ext: m.ext,
       size: m.size,
       durationSec: m.duration_sec,
-      introSec: m.intro_sec,
-      outroSec: m.outro_sec,
-      playableSec: Math.max(1, m.duration_sec - m.intro_sec - m.outro_sec),
       webPlayable: isWebPlayable(m.ext, m.mime),
       createdAt: m.created_at,
     }));
@@ -164,8 +161,6 @@ export async function registerChannelRoutes(app: FastifyInstance) {
         title: programLabel(now.current.path, now.current.title),
         path: now.current.path,
         durationSec: now.current.durationSec,
-        introSec: now.current.introSec,
-        outroSec: now.current.outroSec,
         playhead: now.playhead,
         remaining: now.remaining,
         webPlayable: now.current.webPlayable,
