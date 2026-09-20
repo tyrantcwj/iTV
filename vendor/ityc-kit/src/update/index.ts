@@ -1,11 +1,11 @@
-import { canAccessDockerSocket, startWatchtowerUpdate } from "./docker-update.js";
+import { canAccessDockerSocket, runWatchtowerUpdate } from "./docker-update.js";
 import { commitsDiffer, fetchLatestCommit, shortSha } from "./github.js";
 import { runSourceUpdate } from "./source-update.js";
 import type { UpdateOptions, UpdateResult, UpdateRuntime } from "./types.js";
 
 export * from "./types.js";
 export { commitsDiffer, fetchLatestCommit, shortSha } from "./github.js";
-export { canAccessDockerSocket } from "./docker-update.js";
+export { canAccessDockerSocket, dockerUpdatePreflight, runWatchtowerUpdate } from "./docker-update.js";
 
 /**
  * 判断当前环境能用哪种更新方式。
@@ -71,12 +71,36 @@ export async function applyUpdate(options: UpdateOptions): Promise<UpdateResult>
     if (!target) {
       return { ok: false, mode: "docker", detail: "未指定要重建的容器名，且读不到 HOSTNAME。", actions: [] };
     }
-    const id = await startWatchtowerUpdate(target);
+    const run = await runWatchtowerUpdate(target);
+
+    // 还在跑 = 它多半正忙着拉镜像、重建 target，而 target 就是我们自己。
+    // 这条响应能不能发出去都两说，所以只说「已经在做了」，让调用方回头查版本。
+    if (!run.finished) {
+      return {
+        ok: true,
+        mode: "docker",
+        detail: `Watchtower 正在重建容器 ${target}，连接可能短暂中断，稍后刷新版本确认。`,
+        actions: [...run.actions, `Watchtower ${run.id.slice(0, 12)} 仍在执行`],
+      };
+    }
+
+    if (run.exitCode !== 0) {
+      return {
+        ok: false,
+        mode: "docker",
+        detail: `Watchtower 以退出码 ${run.exitCode} 结束，更新没有发生。${run.logs || "（没有日志）"}`,
+        actions: run.actions,
+      };
+    }
+
+    // 退出码 0，而我们还活着——说明它一个容器都没换掉。真换了的话这段代码
+    // 根本没机会运行：重建 target 的第一步就是把当前进程停掉。
+    // 最常见的两种：镜像没有更新，或者容器名匹配不上。
     return {
-      ok: true,
+      ok: false,
       mode: "docker",
-      detail: `更新任务已启动，正在重建容器 ${target}，连接可能短暂中断。`,
-      actions: [`Started Watchtower ${id.slice(0, 12)}`, `Target container: ${target}`],
+      detail: `Watchtower 已结束但没有重建 ${target}：多半是镜像没有新版本，或容器名匹配不上。${run.logs || "（没有日志）"}`,
+      actions: run.actions,
     };
   }
 

@@ -1,5 +1,5 @@
 import { createInspector } from "ityc-kit/inspect";
-import { applyUpdate, checkForUpdate, getUpdateRuntime } from "ityc-kit/update";
+import { applyUpdate, checkForUpdate, dockerUpdatePreflight, getUpdateRuntime } from "ityc-kit/update";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { channelStore, db, getSettings, mediaStore } from "./db.js";
 import { hasFfmpeg } from "./lib/ffmpeg.js";
@@ -64,6 +64,12 @@ export function createAppInspector() {
             ok: true,
             commit: COMMIT,
             updateRuntime: runtime,
+            // docker 模式下把预检也带上：容器名和 Watchtower 镜像这两样一旦不对，
+            // 更新就是点了没反应，而这是唯一能不触发重建就看出来的办法。
+            updatePreflight:
+              runtime.mode === "docker"
+                ? await dockerUpdatePreflight(process.env.ITYC_CONTAINER_NAME || process.env.HOSTNAME || "")
+                : undefined,
             ffmpeg: await hasFfmpeg(),
             onedrive: Boolean(getSettings().refresh_token),
           };

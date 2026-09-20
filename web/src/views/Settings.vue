@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from "vue";
 import { useRoute } from "vue-router";
-import { api, type Settings, type VersionInfo } from "../api";
+import { ApiError, api, type Settings, type VersionInfo } from "../api";
 
 const route = useRoute();
 const form = reactive({
@@ -55,25 +55,65 @@ async function disconnect() {
   message.value = "已断开 OneDrive";
 }
 
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/**
+ * 盯着 /api/version 看 commit 变没变。
+ *
+ * 更新过程中这个接口会连不上（容器正在重建），所以取不到不算失败，接着等。
+ */
+async function waitForNewCommit(before: string, timeoutMs = 240_000): Promise<VersionInfo | null> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await sleep(3_000);
+    const v = await api<VersionInfo>("/api/version").catch(() => null);
+    if (v && v.commit !== before) {
+      version.value = v;
+      return v;
+    }
+  }
+  return null;
+}
+
 async function triggerUpdate() {
   if (!agentToken.value) {
     error.value = "请填写巡检令牌 AGENT_TOKEN";
     return;
   }
+  const before = version.value?.commit || "";
   updating.value = true;
   error.value = "";
+  message.value = "正在更新，别关页面…";
   try {
     await api("/api/agent/act", {
       method: "POST",
       headers: { Authorization: `Bearer ${agentToken.value}` },
       body: JSON.stringify({ action: "update" }),
     });
-    message.value = "已触发更新，稍后刷新查看版本。连接可能会短暂中断。";
   } catch (err) {
-    error.value = err instanceof Error ? err.message : String(err);
-  } finally {
-    updating.value = false;
+    /*
+     * 更新成功的样子恰好和「请求失败」一模一样：容器被重建，这条连接直接断掉。
+     * 所以断连不能当错误报——真错误（容器名不对、镜像拉不动）是**有响应**的，
+     * 后端现在会把 Watchtower 的退出码和日志带回来。
+     * 只有拿到了明确的错误响应才停，其余一律去查版本，用 commit 变没变来判定。
+     */
+    const status = err instanceof ApiError ? err.status : 0;
+    const answered = status >= 400 && status !== 502 && status !== 503 && status !== 504;
+    if (answered) {
+      error.value = err instanceof Error ? err.message : String(err);
+      message.value = "";
+      updating.value = false;
+      return;
+    }
   }
+  const after = await waitForNewCommit(before);
+  if (after) {
+    message.value = `已更新到 ${after.commit.slice(0, 7)}`;
+  } else {
+    message.value = "";
+    error.value = "等了 4 分钟版本还是没变，更新多半没成功。到设置页点「巡检」看一眼，或者查服务器上的 docker logs。";
+  }
+  updating.value = false;
 }
 
 async function inspect() {

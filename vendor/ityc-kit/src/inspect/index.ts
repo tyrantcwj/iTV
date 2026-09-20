@@ -111,6 +111,20 @@ export function createInspector(options: InspectorOptions): Inspector {
       try {
         const parsed = action.parseInput ? action.parseInput(input) : input;
         const result = await action.run(parsed, ctxOf(query));
+        // 动作自己说失败了，外层就别再报成功。
+        // applyUpdate 这类动作是返回 { ok: false, detail } 而不是抛错的，
+        // 外层无脑 ok:true 的话，界面会在更新压根没发生时显示「已触发更新」，
+        // 失败原因就在 result 里躺着没人看。
+        const inner = result as { ok?: unknown; detail?: unknown } | null;
+        if (inner && typeof inner === "object" && inner.ok === false) {
+          return {
+            ok: false,
+            action: name,
+            elapsedMs: Date.now() - startedAt,
+            error: typeof inner.detail === "string" && inner.detail ? inner.detail : `动作 ${name} 执行失败`,
+            result,
+          };
+        }
         return { ok: true, action: name, elapsedMs: Date.now() - startedAt, result };
       } catch (err) {
         return {
