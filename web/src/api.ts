@@ -7,7 +7,18 @@ export class ApiError extends Error {
 }
 
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const headers = new Headers(init.headers);
+  /*
+   * 这里的 `|| {}` 不能省。
+   *
+   * Chrome 56（安卓 7.1.2 WebView，挂墙那台盒子）的 Headers 构造函数按 IDL
+   * 重载匹配参数，显式传 undefined 不等于「没传」，直接抛
+   * "Failed to construct 'Headers': No matching constructor signature."。
+   * 而 init.headers 在大多数调用里就是 undefined，于是**每一个**接口请求
+   * 都在发出去之前就炸了，界面上是一片空数据加一行红字。
+   *
+   * plugin-legacy 带的 core-js 救不了这个：它不碰 fetch / Headers。
+   */
+  const headers = new Headers(init.headers || {});
   if (init.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
