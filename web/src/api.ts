@@ -56,6 +56,9 @@ export type VersionInfo = {
     message: string;
     date?: string;
   } | null;
+  /** 检查更新失败的原因（私有仓库没令牌最常见），成功时是空串 */
+  updateError?: string;
+  hasGithubToken?: boolean;
 };
 export type Settings = {
   clientId: string;
@@ -66,6 +69,9 @@ export type Settings = {
   publicBaseUrl: string;
   connected: boolean;
   displayName: string;
+  /** 存过就是 "********"，原值不会下发 */
+  githubToken: string;
+  hasGithubToken: boolean;
 };
 
 export type DriveBrowseItem = {

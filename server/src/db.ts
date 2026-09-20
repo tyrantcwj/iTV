@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS settings (
   refresh_token TEXT DEFAULT '',
   access_token TEXT DEFAULT '',
   access_expires_at INTEGER DEFAULT 0,
-  display_name TEXT DEFAULT ''
+  display_name TEXT DEFAULT '',
+  github_token TEXT DEFAULT ''
 );
 INSERT OR IGNORE INTO settings (id) VALUES (1);
 
@@ -59,6 +60,24 @@ CREATE TABLE IF NOT EXISTS channel_items (
 );
 `);
 
+/*
+ * 给已经存在的库补列。
+ *
+ * 上面整段是 CREATE TABLE IF NOT EXISTS——库已经建过之后它就是空操作，
+ * 在建表语句里加一列对老库毫无作用。线上那个库是有数据的，
+ * 不补这一步，getSettings() 读出来的 github_token 就是 undefined，
+ * 写回去直接 SQLITE_ERROR。
+ */
+function ensureColumn(table: string, column: string, ddl: string): void {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  if (!cols.some((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+  }
+}
+
+ensureColumn("settings", "github_token", "github_token TEXT DEFAULT ''");
+
+
 export type Settings = {
   id: number;
   client_id: string;
@@ -70,6 +89,7 @@ export type Settings = {
   access_token: string;
   access_expires_at: number;
   display_name: string;
+  github_token: string;
 };
 
 export type MediaRow = {
@@ -122,7 +142,8 @@ export function updateSettings(patch: Partial<Omit<Settings, "id">>) {
       refresh_token = @refresh_token,
       access_token = @access_token,
       access_expires_at = @access_expires_at,
-      display_name = @display_name
+      display_name = @display_name,
+      github_token = @github_token
      WHERE id = 1`,
   ).run(next);
   return getSettings();

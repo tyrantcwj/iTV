@@ -11,6 +11,8 @@ const form = reactive({
   redirectUri: "",
   publicBaseUrl: "",
 });
+const githubToken = ref("");
+const savingToken = ref(false);
 const settings = ref<Settings | null>(null);
 const version = ref<VersionInfo | null>(null);
 const agentToken = ref("");
@@ -29,6 +31,7 @@ onMounted(async () => {
   form.tenant = data.tenant || "common";
   form.redirectUri = data.redirectUri || `${origin}/api/onedrive/callback`;
   form.publicBaseUrl = data.publicBaseUrl || origin;
+  githubToken.value = data.hasGithubToken ? "********" : "";
   version.value = await api<VersionInfo>("/api/version").catch(() => null);
   if (route.query.oauth === "ok") message.value = "OneDrive 授权成功";
   if (route.query.oauth === "error") error.value = String(route.query.message || "授权失败");
@@ -47,6 +50,30 @@ async function save() {
     error.value = err instanceof Error ? err.message : String(err);
   } finally {
     saving.value = false;
+  }
+}
+
+/*
+ * GitHub 令牌单独存，不搭 OneDrive 那个表单的车。
+ * 只 PUT 这一个字段，免得点「保存令牌」把上面还没填完的 OneDrive 配置一起写进去。
+ */
+async function saveGithubToken() {
+  savingToken.value = true;
+  error.value = "";
+  try {
+    const next = await api<Settings>("/api/settings", {
+      method: "PUT",
+      body: JSON.stringify({ githubToken: githubToken.value }),
+    });
+    settings.value = next;
+    githubToken.value = next.hasGithubToken ? "********" : "";
+    message.value = next.hasGithubToken ? "GitHub 令牌已保存" : "GitHub 令牌已清除";
+    // 令牌变了，私有仓库的更新检查结果跟着变
+    version.value = await api<VersionInfo>("/api/version").catch(() => null);
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err);
+  } finally {
+    savingToken.value = false;
   }
 }
 
@@ -77,7 +104,7 @@ async function waitForNewCommit(before: string, timeoutMs = 240_000): Promise<Ve
 
 async function triggerUpdate() {
   if (!agentToken.value) {
-    error.value = "请填写巡检令牌 AGENT_TOKEN";
+    error.value = "触发更新要先在下面「巡检通道」里填上 AGENT_TOKEN";
     return;
   }
   const before = version.value?.commit || "";
@@ -178,25 +205,64 @@ async function inspect() {
     </div>
 
     <div class="card" style="margin-top: 16px">
-      <h3 style="margin-top: 0">在线更新（ityc-kit）</h3>
+      <h3 style="margin-top: 0">在线更新</h3>
       <p class="hint">
         当前版本 {{ version?.version || "—" }} · commit
-        <code>{{ version?.commit || "dev" }}</code>
+        <code>{{ version?.commit?.slice(0, 7) || "dev" }}</code>
         <span v-if="version?.update?.updateAvailable">
-          · 仓库最新 {{ version.update.latest }}（{{ version.update.message }}）
+          · 仓库最新 <code>{{ version.update.latest }}</code>（{{ version.update.message }}）
         </span>
         <span v-else-if="version?.update"> · 已是最新</span>
       </p>
+      <p v-if="version?.updateError" class="error">
+        查不到仓库最新版本：{{ version.updateError }}
+      </p>
+
+      <label class="field" style="max-width: 520px">
+        GitHub 令牌
+        <input
+          v-model="githubToken"
+          type="password"
+          placeholder="ghp_… / github_pat_…（仓库转私有后必填）"
+        />
+      </label>
+      <p class="hint">
+        用来读这个仓库的代码。仓库是私有的就必须填，否则查更新会 404。
+        建议用 fine-grained PAT，权限只给 Contents: Read，范围只勾
+        <code>{{ version?.repo || "tyrantcwj/iTV" }}</code> 这一个仓库。留空保存即为清除。
+      </p>
+      <p v-if="version?.runtime?.mode === 'docker'" class="hint">
+        注意：docker 模式下拉的是 GHCR 镜像，用的是<strong>宿主机</strong>的 registry 凭据，
+        不是这里填的令牌。镜像一旦转私有，还得在宿主机上
+        <code>docker login ghcr.io</code> 一次，Watchtower 才拉得动。
+      </p>
+      <div class="row" style="margin-top: 12px">
+        <button class="btn secondary" :disabled="savingToken" @click="saveGithubToken">
+          {{ savingToken ? "保存中…" : "保存令牌" }}
+        </button>
+        <button class="btn" :disabled="updating" @click="triggerUpdate">
+          {{ updating ? "更新中…" : "拉取更新并重启" }}
+        </button>
+      </div>
       <p class="hint">{{ version?.runtime?.detail }}</p>
-      <label class="field" style="max-width: 420px">
+      <p class="hint">
+        「拉取更新并重启」这个动作走的是下面的巡检通道，所以要先在那儿填上 AGENT_TOKEN。
+        这个站没有登录，不挡一下的话公网上谁都能点一下把容器重建掉。
+      </p>
+    </div>
+
+    <div class="card" style="margin-top: 16px">
+      <h3 style="margin-top: 0">巡检通道（ityc-kit）</h3>
+      <p class="hint">
+        给运维脚本和 AI agent 用的只读快照接口，顺带承担上面那个更新动作的授权。
+        令牌在容器环境变量 <code>AGENT_TOKEN</code> 里，跟 GitHub 令牌是两回事。
+      </p>
+      <label class="field" style="max-width: 520px">
         巡检令牌 AGENT_TOKEN
         <input v-model="agentToken" type="password" placeholder="容器环境变量里的令牌" />
       </label>
       <div class="row" style="margin-top: 12px">
         <button class="btn secondary" @click="inspect">巡检快照</button>
-        <button class="btn" :disabled="updating" @click="triggerUpdate">
-          {{ updating ? "更新中…" : "拉取更新并重启" }}
-        </button>
       </div>
       <pre v-if="inspecting" class="hint" style="white-space: pre-wrap; margin-top: 12px">{{ inspecting }}</pre>
     </div>

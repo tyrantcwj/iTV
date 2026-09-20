@@ -13,6 +13,9 @@ function publicSettings() {
     publicBaseUrl: s.public_base_url,
     connected: Boolean(s.refresh_token),
     displayName: s.display_name,
+    // 只回「有没有」，绝不回原值：这个站没有登录，/api/settings 是公网可读的
+    githubToken: s.github_token ? "********" : "",
+    hasGithubToken: Boolean(s.github_token),
   };
 }
 
@@ -26,6 +29,7 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
       tenant?: string;
       redirectUri?: string;
       publicBaseUrl?: string;
+      githubToken?: string;
     };
     const patch: Record<string, string> = {};
     if (body.clientId !== undefined) patch.client_id = body.clientId.trim();
@@ -35,6 +39,13 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
     if (body.tenant !== undefined) patch.tenant = body.tenant.trim() || "common";
     if (body.redirectUri !== undefined) patch.redirect_uri = body.redirectUri.trim();
     if (body.publicBaseUrl !== undefined) patch.public_base_url = body.publicBaseUrl.trim();
+    /*
+     * 掩码值原样回传时当作「没改」，空串当作「清除」。
+     * 令牌总得有个撤下来的办法，不然只能进不能出。
+     */
+    if (body.githubToken !== undefined && body.githubToken !== "********") {
+      patch.github_token = body.githubToken.trim();
+    }
     updateSettings(patch);
     return publicSettings();
   });

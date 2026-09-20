@@ -8,6 +8,17 @@ export const APP_VERSION = "0.1.0";
 export const REPO = process.env.ITYC_REPO || "tyrantcwj/iTV";
 export const COMMIT = process.env.BUILD_COMMIT || "dev";
 
+/*
+ * 读私有仓库用的 GitHub 令牌。
+ *
+ * 优先用设置页里存的那个，环境变量兜底——容器里塞过 GITHUB_TOKEN 的部署不用改。
+ * 注意这跟 AGENT_TOKEN 是两码事：AGENT_TOKEN 管的是「谁有权调这个接口」，
+ * 这个管的是「拿什么身份去 GitHub 读代码」。
+ */
+function githubToken(): string | undefined {
+  return getSettings().github_token || process.env.GITHUB_TOKEN || undefined;
+}
+
 function tokenFromReq(req: FastifyRequest) {
   const q = req.query as { token?: string };
   return q.token;
@@ -83,7 +94,7 @@ export function createAppInspector() {
             repo: REPO,
             appRoot: process.env.ITYC_APP_ROOT || "/app",
             branch: "main",
-            githubToken: process.env.GITHUB_TOKEN,
+            githubToken: githubToken(),
             mode: (process.env.ITYC_UPDATE_MODE as "source" | "docker" | "auto") || "auto",
             containerName: process.env.ITYC_CONTAINER_NAME || "itv",
             runtimePaths: ["server", "vendor/ityc-kit"],
@@ -135,7 +146,18 @@ export async function registerAgentRoutes(app: FastifyInstance) {
   const inspector = createAppInspector();
 
   app.get("/api/version", async () => {
-    const update = await checkForUpdate({ repo: REPO, currentCommit: COMMIT }).catch(() => null);
+    /*
+     * 检查更新要带令牌，不然仓库一转私有，GitHub 回 404，
+     * 而这里原本是 .catch(() => null) 一口吞掉的——界面上只剩「当前版本」，
+     * 看不出是「已经最新」还是「根本没查成」。现在把原因带出去。
+     */
+    let update: Awaited<ReturnType<typeof checkForUpdate>> | null = null;
+    let updateError = "";
+    try {
+      update = await checkForUpdate({ repo: REPO, currentCommit: COMMIT, githubToken: githubToken() });
+    } catch (err) {
+      updateError = err instanceof Error ? err.message : String(err);
+    }
     const runtime = await getUpdateRuntime({
       mode: (process.env.ITYC_UPDATE_MODE as "source" | "docker" | "disabled" | "auto") || "auto",
     });
@@ -146,6 +168,8 @@ export async function registerAgentRoutes(app: FastifyInstance) {
       repo: REPO,
       runtime,
       update,
+      updateError,
+      hasGithubToken: Boolean(githubToken()),
     };
   });
 
