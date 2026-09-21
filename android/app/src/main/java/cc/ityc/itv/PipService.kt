@@ -207,6 +207,9 @@ class PipService : Service() {
         )
         player = MediaPlayer(libVlc)
         player?.attachViews(videoLayout, null, false, false)
+        // 不设这个的话 4K 画面按 1:1 铺在小窗上，看到的是左上角那一小块。
+        // 全屏播的时候窗口跟片源差不多大，所以那边看不出来。
+        player?.videoScale = MediaPlayer.ScaleType.SURFACE_BEST_FIT
         player?.setEventListener { e ->
             if (e.type == MediaPlayer.Event.EndReached) handler.post { refresh(true) }
         }
@@ -266,6 +269,8 @@ class PipService : Service() {
         applySize()
         clampIntoScreen()
         root?.let { wm.updateViewLayout(it, lp) }
+        // 窗口尺寸变了，重新按新 surface 算一次缩放
+        handler.post { player?.videoScale = MediaPlayer.ScaleType.SURFACE_BEST_FIT }
     }
 
     private fun applySize() {
@@ -330,6 +335,8 @@ class PipService : Service() {
         player?.media = media
         media.release()
         player?.play()
+        // 换片会重挂 surface，缩放方式得再设一次
+        player?.videoScale = MediaPlayer.ScaleType.SURFACE_BEST_FIT
     }
 
     override fun onDestroy() {
