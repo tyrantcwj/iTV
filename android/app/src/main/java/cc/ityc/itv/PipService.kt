@@ -263,7 +263,7 @@ class PipService : Service() {
                         lp.x = startX + dx.roundToInt()
                         lp.y = startY + dy.roundToInt()
                         clampIntoScreen()
-                        wm.updateViewLayout(v, lp)
+                        requestMove()
                     }
                     true
                 }
@@ -275,6 +275,25 @@ class PipService : Service() {
                 }
                 else -> false
             }
+        }
+    }
+
+    private var movePending = false
+
+    /**
+     * 挪窗口，一帧最多一次。
+     *
+     * 之前是每个 ACTION_MOVE 都直接 updateViewLayout——那是一次跨进程 IPC
+     * 外加一轮重新布局，而布局一变又会去调 VLC 的 setWindowSize。
+     * 拖一下手指能来几十个事件，主线程直接堵死：真机上拖出过 ANR，
+     * 日志里是「Wait queue length: 45」，负载 5.32。
+     */
+    private fun requestMove() {
+        if (movePending) return
+        movePending = true
+        root?.postOnAnimation {
+            movePending = false
+            root?.let { runCatching { wm.updateViewLayout(it, lp) } }
         }
     }
 
@@ -362,18 +381,28 @@ class PipService : Service() {
      * 所以直接把渲染尺寸告诉 vout——这才是真正决定输出多大的那个开关。
      */
     private fun fitVideo() {
-        val v = root ?: return
-        val w = if (v.width > 0) v.width else lp.width
-        val h = if (v.height > 0) v.height else lp.height
-        if (w <= 0 || h <= 0) return
-        player?.videoScale = MediaPlayer.ScaleType.SURFACE_BEST_FIT
-        runCatching { player?.vlcVout?.setWindowSize(w, h) }
+        // 去抖：setWindowSize 会进 VLC 重新配置输出，不能跟着布局回调一次次同步调
+        handler.removeCallbacks(applyFit)
+        handler.postDelayed(applyFit, 200)
+    }
+
+    private val applyFit = Runnable {
+        val v = root
+        if (v != null) {
+            val w = if (v.width > 0) v.width else lp.width
+            val h = if (v.height > 0) v.height else lp.height
+            if (w > 0 && h > 0) {
+                player?.videoScale = MediaPlayer.ScaleType.SURFACE_BEST_FIT
+                runCatching { player?.vlcVout?.setWindowSize(w, h) }
+            }
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacks(tick)
         handler.removeCallbacks(poll)
+        handler.removeCallbacks(applyFit)
         player?.stop()
         player?.detachViews()
         player?.release()

@@ -11,8 +11,8 @@ android {
         applicationId = "cc.ityc.itv"
         minSdk = 24
         targetSdk = 34
-        versionCode = 6
-        versionName = "1.1.0"
+        versionCode = 7
+        versionName = "1.1.1"
         ndk {
             abiFilters += listOf("armeabi-v7a", "arm64-v8a")
         }
