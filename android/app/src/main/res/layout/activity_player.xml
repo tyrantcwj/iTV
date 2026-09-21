@@ -117,16 +117,19 @@
     </LinearLayout>
 
     <!--
-        「缩小到小窗」单独贴右下角，不放进上面那个 OSD。
-        放进去会把 OSD 撑出屏幕底边——实测按钮只剩 11px 高，根本点不着。
+        「缩小到小窗」挂在时钟底下，不往底边放。
+        这个布局在沉浸模式下会延伸到可视窗口以下，凡是 bottom 锚定的东西
+        都会被切掉——实测先塞进 OSD 只剩 11px 高，单独贴右下角也只剩 9px。
+        顶部锚定就没这问题（logo 的 50dp 边距量出来正好在 y=50）。
         跟 OSD 一起显示/隐藏。
     -->
     <TextView
         android:id="@+id/to_pip"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="20dp"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="130dp"
+        android:layout_marginEnd="20dp"
         android:background="#CC101010"
         android:elevation="16dp"
         android:paddingStart="18dp"
