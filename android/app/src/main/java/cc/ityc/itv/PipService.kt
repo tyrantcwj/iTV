@@ -349,11 +349,25 @@ class PipService : Service() {
         player?.media = media
         media.release()
         player?.play()
+        // 换片会重挂 surface，尺寸得再告诉它一次
+        handler.postDelayed({ fitVideo() }, 1200)
     }
 
-    /** 让画面按小窗尺寸整幅塞进去，而不是按原始分辨率 1:1 铺 */
+    /**
+     * 让画面按小窗尺寸整幅塞进去，而不是按原始分辨率 1:1 铺。
+     *
+     * 光设 videoScale 不管用：那条路要靠 libVLC 内部的 VideoHelper 在布局变化时
+     * 回头调 updateVideoSurfaces，而这个窗口是挂在 WindowManager 上的，
+     * 那套回调没跑起来，VLC 始终按片源分辨率渲染，小窗里就只看得见左上角一块。
+     * 所以直接把渲染尺寸告诉 vout——这才是真正决定输出多大的那个开关。
+     */
     private fun fitVideo() {
+        val v = root ?: return
+        val w = if (v.width > 0) v.width else lp.width
+        val h = if (v.height > 0) v.height else lp.height
+        if (w <= 0 || h <= 0) return
         player?.videoScale = MediaPlayer.ScaleType.SURFACE_BEST_FIT
+        runCatching { player?.vlcVout?.setWindowSize(w, h) }
     }
 
     override fun onDestroy() {
