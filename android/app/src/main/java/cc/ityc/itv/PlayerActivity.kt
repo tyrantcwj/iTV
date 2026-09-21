@@ -84,6 +84,9 @@ class PlayerActivity : AppCompatActivity() {
         titleView.text = intent.getStringExtra(EXTRA_CHANNEL_NAME)
         logoView.setOnClickListener { toggleImmersive() }
         clockView.setOnClickListener { toggleOsd() }
+        findViewById<View>(R.id.to_pip).setOnClickListener { enterPip() }
+        // 从小窗点「全屏」回来的话，得先把小窗那份播放器停掉，不然两份一起放
+        PipService.stop(this)
         findViewById<View>(R.id.vol_up).setOnClickListener { nudgeVolume(true) }
         findViewById<View>(R.id.vol_down).setOnClickListener { nudgeVolume(false) }
         applyImmersive()
@@ -160,6 +163,30 @@ class PlayerActivity : AppCompatActivity() {
         clockView.bringToFront()
         volumeHint.bringToFront()
         osd.bringToFront()
+    }
+
+    /**
+     * 缩小到悬浮小窗。
+     *
+     * 安卓 7.1 没有系统画中画（要 API 26，这台是 25），所以是自己挂的窗口，
+     * 需要「显示在其他应用上层」这个权限。没给的话直接跳到系统设置那一页，
+     * 光弹个 Toast 说没权限，人是找不到该去哪儿开的。
+     */
+    private fun enterPip() {
+        if (!PipService.canDraw(this)) {
+            Toast.makeText(this, "需要「显示在其他应用上层」权限", Toast.LENGTH_LONG).show()
+            runCatching {
+                startActivity(
+                    android.content.Intent(
+                        android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        android.net.Uri.parse("package:$packageName"),
+                    ),
+                )
+            }
+            return
+        }
+        PipService.start(this, channelId, intent.getStringExtra(EXTRA_CHANNEL_NAME).orEmpty())
+        finish()
     }
 
     private fun beijingClock(): String {

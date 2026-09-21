@@ -114,5 +114,19 @@
             android:paddingTop="4dp"
             android:textColor="#CCCCCC"
             android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/to_pip"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:background="#1AF5A623"
+            android:paddingStart="12dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="12dp"
+            android:paddingBottom="8dp"
+            android:text="缩小到小窗"
+            android:textColor="#F5A623"
+            android:textSize="14sp" />
     </LinearLayout>
 </FrameLayout>

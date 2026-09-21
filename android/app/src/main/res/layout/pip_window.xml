@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    悬浮小窗。安卓 7.1 没有系统画中画（那要 API 26），
+    所以这里用 SYSTEM_ALERT_WINDOW 自己画一个，能拖、能缩放、能点回全屏。
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/pip_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FF000000">
+
+    <org.videolan.libvlc.util.VLCVideoLayout
+        android:id="@+id/pip_video"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- 控制条，点一下小窗才出来，免得一直压在画面上 -->
+    <LinearLayout
+        android:id="@+id/pip_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:background="#CC101010"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="10dp"
+        android:paddingTop="6dp"
+        android:paddingEnd="6dp"
+        android:paddingBottom="6dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/pip_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/pip_smaller"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="34dp"
+            android:padding="6dp"
+            android:text="－"
+            android:textColor="#F5A623"
+            android:textSize="16sp"
+            android:gravity="center" />
+
+        <TextView
+            android:id="@+id/pip_bigger"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="34dp"
+            android:padding="6dp"
+            android:text="＋"
+            android:textColor="#F5A623"
+            android:textSize="16sp"
+            android:gravity="center" />
+
+        <TextView
+            android:id="@+id/pip_expand"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="6dp"
+            android:text="全屏"
+            android:textColor="#F5A623"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/pip_close"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="6dp"
+            android:text="关闭"
+            android:textColor="#FF8A8A"
+            android:textSize="13sp" />
+    </LinearLayout>
+</FrameLayout>
