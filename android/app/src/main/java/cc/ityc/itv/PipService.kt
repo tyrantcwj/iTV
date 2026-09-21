@@ -207,11 +207,27 @@ class PipService : Service() {
         )
         player = MediaPlayer(libVlc)
         player?.attachViews(videoLayout, null, false, false)
-        // 不设这个的话 4K 画面按 1:1 铺在小窗上，看到的是左上角那一小块。
-        // 全屏播的时候窗口跟片源差不多大，所以那边看不出来。
-        player?.videoScale = MediaPlayer.ScaleType.SURFACE_BEST_FIT
+        fitVideo()
+        /*
+         * 缩放要在「surface 已经有尺寸」之后设才算数。
+         *
+         * attachViews 之后立刻设是没用的——那会儿 VLCVideoLayout 还没量出宽高，
+         * libVLC 内部那次 updateVideoSurfaces 直接跳过了，于是 4K 画面按 1:1
+         * 铺在小窗上，看到的只是左上角那一小块。全屏播时窗口跟片源差不多大，
+         * 所以那条路上看不出来。
+         *
+         * 所以挂两个时机：VLC 报告视频输出就绪（Vout），以及这个 layout 真的
+         * 量出尺寸变化的时候，各重设一次。
+         */
+        videoLayout.addOnLayoutChangeListener { _, l, t, r, b, ol, ot, or_, ob ->
+            if (r - l != or_ - ol || b - t != ob - ot) fitVideo()
+        }
         player?.setEventListener { e ->
-            if (e.type == MediaPlayer.Event.EndReached) handler.post { refresh(true) }
+            when (e.type) {
+                MediaPlayer.Event.EndReached -> handler.post { refresh(true) }
+                MediaPlayer.Event.Vout -> handler.post { fitVideo() }
+                else -> Unit
+            }
         }
     }
 
@@ -269,8 +285,6 @@ class PipService : Service() {
         applySize()
         clampIntoScreen()
         root?.let { wm.updateViewLayout(it, lp) }
-        // 窗口尺寸变了，重新按新 surface 算一次缩放
-        handler.post { player?.videoScale = MediaPlayer.ScaleType.SURFACE_BEST_FIT }
     }
 
     private fun applySize() {
@@ -335,7 +349,10 @@ class PipService : Service() {
         player?.media = media
         media.release()
         player?.play()
-        // 换片会重挂 surface，缩放方式得再设一次
+    }
+
+    /** 让画面按小窗尺寸整幅塞进去，而不是按原始分辨率 1:1 铺 */
+    private fun fitVideo() {
         player?.videoScale = MediaPlayer.ScaleType.SURFACE_BEST_FIT
     }
 
