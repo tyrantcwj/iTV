@@ -158,11 +158,13 @@ class PlayerActivity : AppCompatActivity() {
         player?.media = media
         media.release()
         player?.play()
+        // VLC 每次换片都会重挂 surface，浮在上面的东西都得再提一次
         findViewById<View>(R.id.vol_rail).bringToFront()
         logoView.bringToFront()
         clockView.bringToFront()
         volumeHint.bringToFront()
         osd.bringToFront()
+        findViewById<View>(R.id.to_pip).bringToFront()
     }
 
     /**
