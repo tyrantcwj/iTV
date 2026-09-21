@@ -114,19 +114,27 @@
             android:paddingTop="4dp"
             android:textColor="#CCCCCC"
             android:textSize="13sp" />
-
-        <TextView
-            android:id="@+id/to_pip"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:background="#1AF5A623"
-            android:paddingStart="12dp"
-            android:paddingTop="8dp"
-            android:paddingEnd="12dp"
-            android:paddingBottom="8dp"
-            android:text="缩小到小窗"
-            android:textColor="#F5A623"
-            android:textSize="14sp" />
     </LinearLayout>
+
+    <!--
+        「缩小到小窗」单独贴右下角，不放进上面那个 OSD。
+        放进去会把 OSD 撑出屏幕底边——实测按钮只剩 11px 高，根本点不着。
+        跟 OSD 一起显示/隐藏。
+    -->
+    <TextView
+        android:id="@+id/to_pip"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="20dp"
+        android:background="#CC101010"
+        android:elevation="16dp"
+        android:paddingStart="18dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="18dp"
+        android:paddingBottom="12dp"
+        android:text="缩小到小窗"
+        android:textColor="#F5A623"
+        android:textSize="15sp"
+        android:visibility="gone" />
 </FrameLayout>

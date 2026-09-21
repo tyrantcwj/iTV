@@ -232,7 +232,9 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun toggleOsd() {
-        osd.visibility = if (osd.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+        val show = osd.visibility != View.VISIBLE
+        osd.visibility = if (show) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.to_pip).visibility = if (show) View.VISIBLE else View.GONE
     }
 
     private fun nudgeVolume(up: Boolean) {
