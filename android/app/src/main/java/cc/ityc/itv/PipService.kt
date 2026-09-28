@@ -206,6 +206,8 @@ class PipService : Service() {
             ),
         )
         player = MediaPlayer(libVlc)
+        // 跟全屏共用同一个音量档位，来回切不会突然变响或变哑
+        Volume.apply(this, player)
         player?.attachViews(videoLayout, null, false, false)
         fitVideo()
         /*
@@ -368,6 +370,7 @@ class PipService : Service() {
         player?.media = media
         media.release()
         player?.play()
+        Volume.apply(this, player)
         // 换片会重挂 surface，尺寸得再告诉它一次
         handler.postDelayed({ fitVideo() }, 1200)
     }

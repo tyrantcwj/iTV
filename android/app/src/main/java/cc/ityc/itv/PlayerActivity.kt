@@ -1,7 +1,6 @@
 package cc.ityc.itv
 
 import android.graphics.BitmapFactory
-import android.media.AudioManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -36,7 +35,6 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var clockView: TextView
     private lateinit var volumeHint: TextView
     private lateinit var osd: View
-    private lateinit var audio: AudioManager
 
     private var libVlc: LibVLC? = null
     private var player: MediaPlayer? = null
@@ -79,7 +77,6 @@ class PlayerActivity : AppCompatActivity() {
         clockView = findViewById(R.id.clock)
         volumeHint = findViewById(R.id.volume_hint)
         osd = findViewById(R.id.osd)
-        audio = getSystemService(AUDIO_SERVICE) as AudioManager
         clockView.text = beijingClock()
         titleView.text = intent.getStringExtra(EXTRA_CHANNEL_NAME)
         logoView.setOnClickListener { toggleImmersive() }
@@ -101,6 +98,7 @@ class PlayerActivity : AppCompatActivity() {
             ),
         )
         player = MediaPlayer(libVlc)
+        Volume.apply(this, player)
         player?.attachViews(videoLayout, null, false, false)
         findViewById<View>(R.id.vol_rail).bringToFront()
         logoView.bringToFront()
@@ -158,6 +156,7 @@ class PlayerActivity : AppCompatActivity() {
         player?.media = media
         media.release()
         player?.play()
+        Volume.apply(this, player)
         // VLC 每次换片都会重挂 surface，浮在上面的东西都得再提一次
         findViewById<View>(R.id.vol_rail).bringToFront()
         logoView.bringToFront()
@@ -240,14 +239,9 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun nudgeVolume(up: Boolean) {
-        audio.adjustStreamVolume(
-            AudioManager.STREAM_MUSIC,
-            if (up) AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER,
-            0,
-        )
-        val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
-        val now = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
-        volumeHint.text = "音量 ${now * 100 / max}%"
+        val pct = Volume.nudge(this, up)
+        Volume.apply(this, player)
+        volumeHint.text = "音量 $pct%"
         volumeHint.visibility = View.VISIBLE
         handler.removeCallbacks(hideVolume)
         handler.postDelayed(hideVolume, 1400)
